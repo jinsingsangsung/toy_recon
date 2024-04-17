@@ -20,6 +20,71 @@ decord.bridge.set_bridge('torch')
 import glob
 
 # Video dataset
+# class VideoDataSet(Dataset):
+#     def __init__(self, args):
+#         if os.path.isfile(args.data_path):
+#             self.video = decord.VideoReader(args.data_path)
+#         else:
+#             self.video = [os.path.join(args.data_path, x) for x in sorted(os.listdir(args.data_path))]
+
+#         if args.clip_len: # clip_len > 0: take video clip as its input
+#             l = args.clip_len
+#             nframes = self.dataset['nframes'][vid] # note that not all frames are properly annotated
+#             # nframes = len(list(self.dataset['gttubes'][vid].values())[0][0]) # number of annotated frames
+#             num_clips = nframes // clip_len + int(nframes%clip_len != 0)
+#             amount_to_pad = clip_len-nframes%clip_len
+#             front_pad = amount_to_pad // 2
+#             end_pad = amount_to_pad - front_pad
+#             # let's take the center frame of the clip
+#             index_to_sample.extend([(vid, i*clip_len+(clip_len//2)-front_pad+1, front_pad, end_pad, nframes) for i in range(num_clips)])
+#             total_clips += num_clips
+
+#         # Resize the input video and center crop
+#         self.crop_list, self.resize_list = args.crop_list, args.resize_list
+#         # import pdb; pdb.set_trace; from IPython import embed; embed()     
+#         first_frame = self.img_transform(self.img_load(0))
+#         self.final_size = first_frame.size(-2) * first_frame.size(-1)
+
+#     def img_load(self, idx):
+#         if isinstance(self.video, list):
+#             img = read_image(self.video[idx])
+#         else:
+#             img = self.video[idx].permute(-1,0,1)
+#         return img / 255.
+
+#     def vid_load(self, idx):
+#         if isinstance(self.video, list):
+#             img = read_image(self.video[idx])
+#         else:
+#             img = self.video[idx].permute(-1,0,1)
+#         return img / 255.
+
+#     def img_transform(self, img):
+#         if self.crop_list != '-1': 
+#             crop_h, crop_w = [int(x) for x in self.crop_list.split('_')[:2]]
+#             if 'last' not in self.crop_list:
+#                 img = center_crop(img, (crop_h, crop_w))
+#         if self.resize_list != '-1':
+#             if '_' in self.resize_list:
+#                 resize_h, resize_w = [int(x) for x in self.resize_list.split('_')]
+#                 img = interpolate(img, (resize_h, resize_w), 'bicubic')
+#             else:
+#                 resize_hw = int(self.resize_list)
+#                 img = resize(img, resize_hw,  'bicubic')
+#         if 'last' in self.crop_list:
+#             img = center_crop(img, (crop_h, crop_w))
+#         return img
+
+#     def __len__(self):
+#         return len(self.video)
+
+#     def __getitem__(self, idx):
+#         tensor_image = self.img_transform(self.img_load(idx))
+#         norm_idx = float(idx) / len(self.video)
+#         sample = {'img': tensor_image, 'idx': idx, 'norm_idx': norm_idx}
+        
+#         return sample
+
 class VideoDataSet(Dataset):
     def __init__(self, args):
         if os.path.isfile(args.data_path):
@@ -27,11 +92,28 @@ class VideoDataSet(Dataset):
         else:
             self.video = [os.path.join(args.data_path, x) for x in sorted(os.listdir(args.data_path))]
 
+        self.clip_len = args.clip_len
         # Resize the input video and center crop
         self.crop_list, self.resize_list = args.crop_list, args.resize_list
-        # import pdb; pdb.set_trace; from IPython import embed; embed()     
+
+        if args.clip_len > 1: # take video clip as its input 
+            total_clips = 0
+            self.index_to_sample = []
+            l = args.clip_len
+            nframes = len(self.video)
+            num_clips = nframes // l + int(nframes%l != 0)
+            amount_to_pad = l-nframes%l
+            front_pad = amount_to_pad // 2
+            end_pad = amount_to_pad - front_pad
+            # let's take the center frame of the clip
+            self.index_to_sample.extend([(i*l+(l//2)-front_pad+1, front_pad, end_pad, nframes) for i in range(num_clips)])
+            total_clips += num_clips
+            print("total clips: {}".format(total_clips))
+
         first_frame = self.img_transform(self.img_load(0))
-        self.final_size = first_frame.size(-2) * first_frame.size(-1)
+        self.h, self.w = first_frame.size(-2), first_frame.size(-1)
+        self.final_size = self.h * self.w
+        self.num_clips = num_clips
 
     def img_load(self, idx):
         if isinstance(self.video, list):
@@ -39,6 +121,20 @@ class VideoDataSet(Dataset):
         else:
             img = self.video[idx].permute(-1,0,1)
         return img / 255.
+
+    def vid_load(self, idx):
+        cf_id, front_pad, end_pad, nframes = self.index_to_sample[idx]
+        imgs = []
+        for i in range(cf_id - (self.clip_len // 2)+1, cf_id + (self.clip_len // 2)):
+            if i in range(nframes):
+                if isinstance(self.video, list):
+                    imgs.append(read_image(self.video[i]))
+                else:
+                    imgs.append(self.video[i].permute(-1,0,1))
+        buffer = torch.cat(imgs)
+        if front_pad > 0 or end_pad > 0:
+            F.pad(buffer, (front_pad, end_pad, 0, 0, 0, 0, 0, 0))
+        return buffer / 255.
 
     def img_transform(self, img):
         if self.crop_list != '-1': 
@@ -60,8 +156,12 @@ class VideoDataSet(Dataset):
         return len(self.video)
 
     def __getitem__(self, idx):
-        tensor_image = self.img_transform(self.img_load(idx))
-        norm_idx = float(idx) / len(self.video)
+        if self.clip_len > 1:
+            tensor_image = [self.img_transform(self.vid_load(idx)[j]) for j in range(self.clip_len)]
+            norm_idx = float(idx) / len(self.num_clips)
+        else:
+            tensor_image = self.img_transform(self.img_load(idx))
+            norm_idx = float(idx) / len(self.video)
         sample = {'img': tensor_image, 'idx': idx, 'norm_idx': norm_idx}
         
         return sample
