@@ -31,6 +31,7 @@ def main():
         help='Valid_train/total_train/all data split, e.g., 18_19_20 means for every 20 samples, the first 19 samples is full train set, and the first 18 samples is chose currently')
     parser.add_argument('--crop_list', type=str, default='640_1280', help='video crop size',)
     parser.add_argument('--resize_list', type=str, default='-1', help='video resize size',)
+    parser.add_argument('--clip_len', type=int, default=1, help='video clip length',)
 
     # NERV architecture parameters
     # Embedding and encoding parameters
@@ -103,7 +104,7 @@ def main():
         '_dist' if args.distributed else '', '_shuffle_data' if args.shuffle_data else '',)
     args.quant_str = f'quant_M{args.quant_model_bit}_E{args.quant_embed_bit}'
     embed_str = f'{args.embed}_Dim{args.enc_dim}'
-    exp_id = f'{args.vid}/{args.data_split}_{embed_str}_FC{args.fc_hw}_KS{args.ks}_RED{args.reduce}_low{args.lower_width}_blk{args.num_blks}' + \
+    exp_id = f'{args.vid}/{args.data_split}_{embed_str}_FC{args.fc_hw}_KS{args.ks}_CL{args.clip_len}_RED{args.reduce}_low{args.lower_width}_blk{args.num_blks}' + \
             f'_e{args.epochs}_b{args.batchSize}_{args.quant_str}_lr{args.lr}_{args.lr_type}_{args.loss}_{extra_str}{args.act}{args.block_params}{args.suffix}'
     args.exp_id = exp_id
 
@@ -211,10 +212,10 @@ def train(local_rank, args):
     print("Use GPU: {} for training".format(local_rank))
     if args.distributed and args.ngpus_per_node > 1:
         model = torch.nn.parallel.DistributedDataParallel(model.to(local_rank), device_ids=[local_rank], output_device=local_rank, find_unused_parameters=False)
-    elif args.ngpus_per_node > 1:
-        model = torch.nn.DataParallel(model)
     elif torch.cuda.is_available():
         model = model.cuda()
+    elif args.ngpus_per_node > 1:
+        model = torch.nn.DataParallel(model)
 
     optimizer = optim.Adam(model.parameters(), weight_decay=0.)
     args.transform_func = TransformInput(args)
@@ -364,7 +365,7 @@ def train(local_rank, args):
 # Writing final results in CSV file
 def Dump2CSV(args, best_results_list, results_list, psnr_list, filename='results.csv'):
     result_dict = {'Vid':args.vid, 'CurEpoch':args.cur_epoch, 'Time':args.train_time, 
-        'FPS':args.fps, 'Split':args.data_split, 'Embed':args.embed, 'Crop': args.crop_list,
+        'FPS':args.fps, 'Split':args.data_split, 'Embed':args.embed, 'Clip_length':args.clip_len, 'Crop': args.crop_list,
         'Resize':args.resize_list, 'Lr_type':args.lr_type, 'LR (E-3)': args.lr*1e3, 'Batch':args.batchSize,
         'Size (M)': f'{round(args.encoder_param, 2)}_{round(args.decoder_param, 2)}_{round(args.total_param, 2)}', 
         'ModelSize': args.modelsize, 'Epoch':args.epochs, 'Loss':args.loss, 'Act':args.act, 'Norm':args.norm,
