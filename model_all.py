@@ -18,6 +18,8 @@ from torch.nn.functional import interpolate
 import decord
 decord.bridge.set_bridge('torch')
 import glob
+from models_mamba import create_block
+from einops import rearrange
 
 class VideoDataSet(Dataset):
     def __init__(self, args):
@@ -27,7 +29,7 @@ class VideoDataSet(Dataset):
             self.video = [os.path.join(args.data_path, x) for x in sorted(os.listdir(args.data_path))]
 
         self.clip_len = args.clip_len
-        assert args.clip_len % 2 == 0, "clip length should be divisible by 2"
+        assert args.clip_len % 2 == 0 or args.clip_len == 1, "clip length should be divisible by 2"
         # Resize the input video and center crop
         self.crop_list, self.resize_list = args.crop_list, args.resize_list
 
@@ -102,7 +104,7 @@ class VideoDataSet(Dataset):
     def __getitem__(self, idx):
         if self.clip_len > 1:
             try:
-                tensor_image = torch.stack([self.img_transform(self.vid_load(idx)[j]) for j in range(self.clip_len)], dim=0)
+                tensor_image = torch.stack([self.img_transform(self.vid_load(idx)[j]) for j in range(self.clip_len)], dim=1)
             except:
                 print("self.vid_load(idx) length: ", len(self.vid_load(idx)))
                 raise AssertionError
@@ -145,6 +147,123 @@ def OutImg(x, out_bias='tanh'):
     else:
         return x + float(out_bias)
 
+
+class MambaNeRV(nn.Module):
+    def __init__(self, args):
+        super().__init__()
+        self.embed = args.embed
+        ks_enc, ks_dec1, ks_dec2 = [int(x) for x in args.ks.split('_')]
+        enc_blks, dec_blks = [int(x) for x in args.num_blks.split('_')]
+        embed_dim = 3
+        d_state = 64
+
+        # BUILD Encoder LAYERS
+        if len(args.enc_strds):
+            self.encoder_layers = nn.ModuleList(
+                [
+                    create_block(
+                        embed_dim,
+                        d_state,
+                        # args.enc_strds[i]
+                    )
+                    for i in range(len(args.enc_strds))
+                ]
+            )
+            self.encoder = nn.Sequential(*self.encoder_layers)
+        
+        if len(args.dec_strds):
+            self.decoder_layers = nn.ModuleList(
+                [
+                    create_block(
+                        embed_dim,
+                        d_state,
+                        # args.enc_strds[i]
+                    )
+                    for i in range(len(args.enc_strds))
+                ]
+            )
+            self.decoder = nn.Sequential(*self.decoder_layers)        
+        # import pdb; pdb.set_trace()
+
+        # if len(args.enc_strds):
+        #     # enc_dim1, enc_dim2 = [int(x) for x in args.enc_dim.split('_')]
+        #     # c_in_list, c_out_list = [enc_dim1] * len(args.enc_strds), [enc_dim1] * len(args.enc_strds)
+        #     # c_out_list[-1] = enc_dim2
+        #     if args.conv_type[0] == 'convnext':
+        #         self.encoder = ConvNeXt(stage_blocks=enc_blks, strds=args.enc_strds, dims=c_out_list,
+        #             drop_path_rate=0)
+        #     else:
+        #         c_in_list[0] = 3
+        #         encoder_layers = []
+        #         for c_in, c_out, strd in zip(c_in_list, c_out_list, args.enc_strds):
+        #             encoder_layers.append(NeRVBlock(dec_block=False, conv_type=args.conv_type[0], ngf=c_in,
+        #              new_ngf=c_out, ks=ks_enc, strd=strd, bias=True, norm=args.norm, act=args.act))
+        #         self.encoder = nn.Sequential(*encoder_layers)
+        #     hnerv_hw = np.prod(args.enc_strds) // np.prod(args.dec_strds)
+        #     self.fc_h, self.fc_w = hnerv_hw, hnerv_hw
+        #     ch_in = enc_dim2
+        # else:
+        #     ch_in = 2 * int(args.embed.split('_')[-1])
+        #     self.pe_embed = PositionEncoding(args.embed)  
+        #     self.encoder = nn.Identity()
+        #     self.fc_h, self.fc_w = [int(x) for x in args.fc_hw.split('_')]
+
+        # BUILD Decoder LAYERS  
+        # decoder_layers = []        
+        # ngf = args.fc_dim
+        # out_f = int(ngf * self.fc_h * self.fc_w)
+        # decoder_layer1 = NeRVBlock(dec_block=False, conv_type='conv', ngf=ch_in, new_ngf=out_f, ks=0, strd=1, 
+        #     bias=True, norm=args.norm, act=args.act)
+        # decoder_layers.append(decoder_layer1)
+        # for i, strd in enumerate(args.dec_strds):                         
+        #     reduction = sqrt(strd) if args.reduce==-1 else args.reduce
+        #     new_ngf = int(max(round(ngf / reduction), args.lower_width))
+        #     for j in range(dec_blks):
+        #         cur_blk = NeRVBlock(dec_block=True, conv_type=args.conv_type[1], ngf=ngf, new_ngf=new_ngf, 
+        #             ks=min(ks_dec1+2*i, ks_dec2), strd=1 if j else strd, bias=True, norm=args.norm, act=args.act)
+        #         decoder_layers.append(cur_blk)
+        #         ngf = new_ngf
+        
+        # self.decoder = nn.ModuleList(decoder_layers)
+        # self.head_layer = nn.Conv2d(ngf, 3, 3, 1, 1) 
+        self.head_layer = nn.Conv3d(3, 3, 3, 1, 1) 
+        self.out_bias = args.out_bias
+        self.clip_len = args.clip_len
+
+    def forward(self, input, input_embed=None, encode_only=False):
+        '''
+        input: (B, 3, clip_len, H, W) if clip_len > 1 else (B, 3, H, W)
+        '''
+        if len(input.shape) == 4:
+            input = input[:,:,None]
+        t, h, w = input.shape[-3:]
+        if input_embed != None:
+            hidden_states = input_embed
+        else:
+            if 'pe' in self.embed:
+                input = self.pe_embed(input[:,None]).float()
+            hidden_states = rearrange(input, "B C T H W -> B (T H W) C")
+        residual = None
+        for layer in self.encoder_layers:
+            hidden_states, residual = layer(hidden_states=hidden_states, residual=residual)
+        embed_list = [residual]
+        dec_start = time.time()
+        for layer in self.decoder_layers:
+            hidden_states, residual = layer(hidden_states=hidden_states, residual=residual)
+            embed_list.append(residual)
+        # import pdb; pdb.set_trace; from IPython import embed; embed()     
+        
+        output = rearrange(residual, "B (T H W) C -> B C T H W",
+                                  T=t, H=h, W=w)
+        assert output.size(2) == self.clip_len, f"temporal output dimension should be {self.clip_len}, currently it's {output.size(2)}"
+        img_out = OutImg(self.head_layer(output), self.out_bias)
+        if len(img_out.shape) == 5:
+            img_out = img_out.flatten(2,3)
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+        dec_time = time.time() - dec_start
+
+        return  img_out, embed_list, dec_time
 
 class HNeRV(nn.Module):
     def __init__(self, args):
@@ -208,6 +327,102 @@ class HNeRV(nn.Module):
                 input = self.pe_embed(input[:,None]).float()
             img_embed = self.encoder(input)
 
+        # import pdb; pdb.set_trace; from IPython import embed; embed()     
+        embed_list = [img_embed]
+        dec_start = time.time()
+        output = self.decoder[0](img_embed)
+        n, c, h, w = output.shape
+        output = output.view(n, -1, self.fc_h, self.fc_w, h, w).permute(0,1,4,2,5,3).reshape(n,-1,self.fc_h * h, self.fc_w * w)
+        embed_list.append(output)
+        for layer in self.decoder[1:]:
+            output = layer(output) 
+            embed_list.append(output)
+
+        img_out = OutImg(self.head_layer(output), self.out_bias)
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+        dec_time = time.time() - dec_start
+
+        return  img_out, embed_list, dec_time
+
+class MambaHNeRV(nn.Module):
+    def __init__(self, args):
+        super().__init__()
+        self.embed = args.embed
+        ks_enc, ks_dec1, ks_dec2 = [int(x) for x in args.ks.split('_')]
+        enc_blks, dec_blks = [int(x) for x in args.num_blks.split('_')]
+        self.mamba_layers = nn.ModuleList(
+                [
+                    create_block(
+                        16,
+                        16,
+                        # args.enc_strds[i]
+                    )
+                    for i in range(4)
+                ]
+            )
+        # BUILD Encoder LAYERS
+        if len(args.enc_strds):         #HNeRV
+            enc_dim1, enc_dim2 = [int(x) for x in args.enc_dim.split('_')]
+            c_in_list, c_out_list = [enc_dim1] * len(args.enc_strds), [enc_dim1] * len(args.enc_strds)
+            c_out_list[-1] = enc_dim2
+            if args.conv_type[0] == 'convnext':
+                self.encoder = ConvNeXt(stage_blocks=enc_blks, strds=args.enc_strds, dims=c_out_list,
+                    drop_path_rate=0)
+            else:
+                c_in_list[0] = 3
+                encoder_layers = []
+                for c_in, c_out, strd in zip(c_in_list, c_out_list, args.enc_strds):
+                    encoder_layers.append(NeRVBlock(dec_block=False, conv_type=args.conv_type[0], ngf=c_in,
+                     new_ngf=c_out, ks=ks_enc, strd=strd, bias=True, norm=args.norm, act=args.act))
+                # encoder_layers.extend(self.mamba_layers)
+                self.encoder = nn.Sequential(*encoder_layers)
+            hnerv_hw = np.prod(args.enc_strds) // np.prod(args.dec_strds)
+            self.fc_h, self.fc_w = hnerv_hw, hnerv_hw
+            ch_in = enc_dim2
+        else:
+            ch_in = 2 * int(args.embed.split('_')[-1])
+            self.pe_embed = PositionEncoding(args.embed)  
+            self.encoder = nn.Identity()
+            self.fc_h, self.fc_w = [int(x) for x in args.fc_hw.split('_')]
+
+        # BUILD Decoder LAYERS  
+        decoder_layers = []        
+        ngf = args.fc_dim
+        out_f = int(ngf * self.fc_h * self.fc_w)
+        decoder_layer1 = NeRVBlock(dec_block=False, conv_type='conv', ngf=ch_in, new_ngf=out_f, ks=0, strd=1, 
+            bias=True, norm=args.norm, act=args.act)
+        decoder_layers.append(decoder_layer1)
+        for i, strd in enumerate(args.dec_strds):                         
+            reduction = sqrt(strd) if args.reduce==-1 else args.reduce
+            new_ngf = int(max(round(ngf / reduction), args.lower_width))
+            for j in range(dec_blks):
+                cur_blk = NeRVBlock(dec_block=True, conv_type=args.conv_type[1], ngf=ngf, new_ngf=new_ngf, 
+                    ks=min(ks_dec1+2*i, ks_dec2), strd=1 if j else strd, bias=True, norm=args.norm, act=args.act)
+                decoder_layers.append(cur_blk)
+                ngf = new_ngf
+        
+        self.decoder = nn.ModuleList(decoder_layers)
+        self.head_layer = nn.Conv2d(ngf, 3, 3, 1, 1) 
+        self.out_bias = args.out_bias
+
+    def forward(self, input, input_embed=None, encode_only=False):
+        '''
+        input: (B, clip_len, 3, H, W) if clip_len > 1 else (B, 3, H, W)
+        '''
+        if input_embed != None:
+            img_embed = input_embed
+        else:
+            if 'pe' in self.embed:
+                input = self.pe_embed(input[:,None]).float()
+            img_embed = self.encoder(input)
+        # print("img_embed.shape: ", img_embed.shape)
+        h, w = img_embed.shape[-2:]
+        hidden_states = rearrange(img_embed, "B C H W -> B (H W) C")
+        residual = None
+        for layer in self.mamba_layers:
+            hidden_states, residual = layer(hidden_states=hidden_states, residual=residual)
+        img_embed = rearrange(residual, "B (H W) C -> B C H W", H=h, W=w)
         # import pdb; pdb.set_trace; from IPython import embed; embed()     
         embed_list = [img_embed]
         dec_start = time.time()

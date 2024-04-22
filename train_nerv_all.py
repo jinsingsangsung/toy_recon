@@ -13,13 +13,14 @@ import torch.multiprocessing as mp
 import torch.optim as optim
 import torch.utils.data
 from torch.utils.tensorboard import SummaryWriter
-from model_all import VideoDataSet, HNeRV, HNeRVDecoder, TransformInput
+from model_all import VideoDataSet, HNeRV, MambaNeRV, MambaHNeRV, HNeRVDecoder, TransformInput
 from hnerv_utils import *
 from torch.utils.data import Subset
 from copy import deepcopy
 from dahuffman import HuffmanCodec
 from torchvision.utils import save_image
 import pandas as pd
+from einops import rearrange
 
 def main():
     parser = argparse.ArgumentParser()
@@ -105,7 +106,7 @@ def main():
     args.quant_str = f'quant_M{args.quant_model_bit}_E{args.quant_embed_bit}'
     embed_str = f'{args.embed}_Dim{args.enc_dim}'
     exp_id = f'{args.vid}/{args.data_split}_{embed_str}_FC{args.fc_hw}_KS{args.ks}_CL{args.clip_len}_RED{args.reduce}_low{args.lower_width}_blk{args.num_blks}' + \
-            f'_e{args.epochs}_b{args.batchSize}_{args.quant_str}_lr{args.lr}_{args.lr_type}_{args.loss}_{extra_str}{args.act}{args.block_params}{args.suffix}'
+            f'_e{args.epochs}_b{args.batchSize}_{args.quant_str}_lr{args.lr}_{args.lr_type}_{args.loss}_{extra_str}{args.act}{args.block_params}{args.suffix}_MambaNeRV'
     args.exp_id = exp_id
 
     args.outf = os.path.join(args.outf, exp_id)
@@ -192,12 +193,15 @@ def train(local_rank, args):
     args.fc_dim = int(np.roots([a,b,c - decoder_size]).max())
 
     # Building model
-    model = HNeRV(args)
+    # model = HNeRV(args)
+    model = MambaNeRV(args)
+    # model = MambaHNeRV(args)
 
     ##### get model params and flops #####
     if local_rank in [0, None]:
         encoder_param = (sum([p.data.nelement() for p in model.encoder.parameters()]) / 1e6) 
         decoder_param = (sum([p.data.nelement() for p in model.decoder.parameters()]) / 1e6) 
+        # decoder_param = 0
         total_param = decoder_param + embed_param / 1e6
         args.encoder_param, args.decoder_param, args.total_param = encoder_param, decoder_param, total_param
         param_str = f'Encoder_{round(encoder_param, 2)}M_Decoder_{round(decoder_param, 2)}M_Total_{round(total_param, 2)}M'
@@ -211,7 +215,7 @@ def train(local_rank, args):
     # distrite model to gpu or parallel
     print("Use GPU: {} for training".format(local_rank))
     if args.distributed and args.ngpus_per_node > 1:
-        model = torch.nn.parallel.DistributedDataParallel(model.to(local_rank), device_ids=[local_rank], output_device=local_rank, find_unused_parameters=False)
+        model = torch.nn.parallel.DistributedDataParallel(model.to(local_rank), device_ids=[local_rank], output_device=local_rank, find_unused_parameters=True)
     elif torch.cuda.is_available():
         model = model.cuda()
     elif args.ngpus_per_node > 1:
@@ -315,7 +319,11 @@ def train(local_rank, args):
         # ADD train_PSNR TO TENSORBOARD
         if local_rank in [0, None]:
             h, w = img_out.shape[-2:]
-            writer.add_scalar(f'Train/pred_PSNR_{h}X{w}', pred_psnr, epoch+1)
+            try:
+                writer.add_scalar(f'Train/pred_PSNR_{h}X{w}', pred_psnr, epoch+1)
+            except:
+                pred_psnr = torch.tensor(pred_psnr, device=f"cuda:{local_rank}")
+                writer.add_scalar(f'Train/pred_PSNR_{h}X{w}', pred_psnr, epoch+1)
             writer.add_scalar('Train/lr', lr, epoch+1)
             epoch_end_time = datetime.now()
             print("Time/epoch: \tCurrent:{:.2f} \tAverage:{:.2f}".format( (epoch_end_time - epoch_start_time).total_seconds(), \
@@ -415,6 +423,9 @@ def evaluate(model, full_dataloader, local_rank, args,
                     time_list.append(dec_time)
 
             # compute psnr and ms-ssim
+            if args.clip_len > 1:
+                img_out = rearrange(img_out, "B C T H W -> (B T) C H W")
+                img_gt = rearrange(img_gt, "B C T H W -> (B T) C H W")
             pred_psnr, pred_ssim = psnr_fn_batch([img_out], img_gt), msssim_fn_batch([img_out], img_gt)
             for metric_idx, cur_v in  enumerate([pred_psnr, pred_ssim]):
                 for batch_i, cur_img_idx in enumerate(img_idx):
@@ -476,7 +487,12 @@ def evaluate(model, full_dataloader, local_rank, args,
     if local_rank in [0, None] and quant_ckt != None:
         quant_vid = {'embed': quant_embed, 'model': quant_ckt}
         torch.save(quant_vid, f'{args.outf}/quant_vid.pth')
-        torch.jit.save(torch.jit.trace(HNeRVDecoder(model), (vid_embed[:2])), f'{args.outf}/img_decoder.pth')
+        if args.distributed:
+            decoder = model.module.decoder
+        else:
+            decoder = model.decoder
+            torch.jit.save(torch.jit.trace(decoder, (vid_embed[:2])), f'{args.outf}/img_decoder.pth')
+        # torch.jit.save(torch.jit.trace(HNeRVDecoder(model, args), (vid_embed[:2])), f'{args.outf}/img_decoder.pth')
         # huffman coding
         if huffman_coding:
             quant_v_list = quant_embed['quant'].flatten().tolist()
