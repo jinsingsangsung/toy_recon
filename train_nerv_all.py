@@ -106,7 +106,7 @@ def main():
     args.quant_str = f'quant_M{args.quant_model_bit}_E{args.quant_embed_bit}'
     embed_str = f'{args.embed}_Dim{args.enc_dim}'
     exp_id = f'{args.vid}/{args.data_split}_{embed_str}_FC{args.fc_hw}_KS{args.ks}_CL{args.clip_len}_RED{args.reduce}_low{args.lower_width}_blk{args.num_blks}' + \
-            f'_e{args.epochs}_b{args.batchSize}_{args.quant_str}_lr{args.lr}_{args.lr_type}_{args.loss}_{extra_str}{args.act}{args.block_params}{args.suffix}_MambaNeRV'
+            f'_e{args.epochs}_b{args.batchSize}_{args.quant_str}_lr{args.lr}_{args.lr_type}_{args.loss}_{extra_str}{args.act}{args.block_params}{args.suffix}_MambaConv'
     args.exp_id = exp_id
 
     args.outf = os.path.join(args.outf, exp_id)
@@ -193,8 +193,8 @@ def train(local_rank, args):
     args.fc_dim = int(np.roots([a,b,c - decoder_size]).max())
 
     # Building model
-    # model = HNeRV(args)
-    model = MambaNeRV(args)
+    model = HNeRV(args)
+    # model = MambaNeRV(args)
     # model = MambaHNeRV(args)
 
     ##### get model params and flops #####
@@ -220,7 +220,9 @@ def train(local_rank, args):
         model = model.cuda()
     elif args.ngpus_per_node > 1:
         model = torch.nn.DataParallel(model)
-
+    # print(model.encoder.downsample_layers[0][0].mamba_kernels[0].in_proj.weight.device)
+    # print(model.encoder.downsample_layers[-1][-1].weight.device)
+    # print(model.head_layer.weight.device)
     optimizer = optim.Adam(model.parameters(), weight_decay=0.)
     args.transform_func = TransformInput(args)
 
@@ -487,12 +489,12 @@ def evaluate(model, full_dataloader, local_rank, args,
     if local_rank in [0, None] and quant_ckt != None:
         quant_vid = {'embed': quant_embed, 'model': quant_ckt}
         torch.save(quant_vid, f'{args.outf}/quant_vid.pth')
-        if args.distributed:
-            decoder = model.module.decoder
-        else:
-            decoder = model.decoder
-            torch.jit.save(torch.jit.trace(decoder, (vid_embed[:2])), f'{args.outf}/img_decoder.pth')
-        # torch.jit.save(torch.jit.trace(HNeRVDecoder(model, args), (vid_embed[:2])), f'{args.outf}/img_decoder.pth')
+        # if args.distributed:
+        #     decoder = model.module.decoder
+        # else:
+        #     decoder = model.decoder
+        #     torch.jit.save(torch.jit.trace(decoder, (vid_embed[:2])), f'{args.outf}/img_decoder.pth')
+        torch.jit.save(torch.jit.trace(HNeRVDecoder(model, args), (vid_embed[:2])), f'{args.outf}/img_decoder.pth')
         # huffman coding
         if huffman_coding:
             quant_v_list = quant_embed['quant'].flatten().tolist()

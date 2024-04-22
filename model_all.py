@@ -20,6 +20,7 @@ decord.bridge.set_bridge('torch')
 import glob
 from models_mamba import create_block
 from einops import rearrange
+from mambaconv import MambaConv2d
 
 class VideoDataSet(Dataset):
     def __init__(self, args):
@@ -278,7 +279,7 @@ class HNeRV(nn.Module):
             c_in_list, c_out_list = [enc_dim1] * len(args.enc_strds), [enc_dim1] * len(args.enc_strds)
             c_out_list[-1] = enc_dim2
             if args.conv_type[0] == 'convnext':
-                self.encoder = ConvNeXt(stage_blocks=enc_blks, strds=args.enc_strds, dims=c_out_list,
+                self.encoder = ConvNeXtMamba(stage_blocks=enc_blks, strds=args.enc_strds, dims=c_out_list,
                     drop_path_rate=0)
             else:
                 c_in_list[0] = 3
@@ -295,7 +296,6 @@ class HNeRV(nn.Module):
             self.pe_embed = PositionEncoding(args.embed)  
             self.encoder = nn.Identity()
             self.fc_h, self.fc_w = [int(x) for x in args.fc_hw.split('_')]
-
         # BUILD Decoder LAYERS  
         decoder_layers = []        
         ngf = args.fc_dim
@@ -315,6 +315,12 @@ class HNeRV(nn.Module):
         self.decoder = nn.ModuleList(decoder_layers)
         self.head_layer = nn.Conv2d(ngf, 3, 3, 1, 1) 
         self.out_bias = args.out_bias
+        # print(self.encoder.downsample_layers[0][0].mamba_kernels[0].in_proj.weight.device)
+        # print(self.head_layer.weight.device)
+
+    def _device_check(self, m):
+        if isinstance(m, (ConvNeXtMamba)):
+            m._device_check
 
     def forward(self, input, input_embed=None, encode_only=False):
         '''
@@ -660,7 +666,6 @@ class Block(nn.Module):
         x = input + self.drop_path(x)
         return x
 
-
 class ConvNeXt(nn.Module):
     r""" ConvNeXt
         A PyTorch impl of : `A ConvNet for the 2020s`  -
@@ -713,6 +718,74 @@ class ConvNeXt(nn.Module):
         if isinstance(m, (nn.Conv2d, nn.Linear)):
             trunc_normal_(m.weight, std=.02)
             nn.init.constant_(m.bias, 0)
+
+    def forward(self, x):
+        out_list = []
+        for i in range(self.stage_num):
+            x = self.downsample_layers[i](x)
+            x = self.stages[i](x)
+            out_list.append(x)
+        return out_list[-1]
+
+
+class ConvNeXtMamba(nn.Module):
+    r""" ConvNeXt
+        A PyTorch impl of : `A ConvNet for the 2020s`  -
+          https://arxiv.org/pdf/2201.03545.pdf
+
+    Args:
+        in_chans (int): Number of input image channels. Default: 3
+        num_classes (int): Number of classes for classification head. Default: 1000
+        depths (tuple(int)): Number of blocks at each stage. Default: [3, 3, 9, 3]
+        dims (int): Feature dimension at each stage. Default: [96, 192, 384, 768]
+        drop_path_rate (float): Stochastic depth rate. Default: 0.
+        layer_scale_init_value (float): Init value for Layer Scale. Default: 1e-6.
+        head_init_scale (float): Init scaling value for classifier weights and biases. Default: 1.
+    """
+    def __init__(self, stage_blocks=0, strds=[2,2,2,2], dims=[96, 192, 384, 768], 
+            in_chans=3, drop_path_rate=0., layer_scale_init_value=1e-6,
+                 ):
+        super().__init__()
+
+        self.downsample_layers = nn.ModuleList() # stem and 3 intermediate downsampling conv layers
+        self.stages = nn.ModuleList() # 4 feature resolution stages, each consisting of multiple residual blocks
+        self.stage_num = len(dims)
+        dp_rates=[x.item() for x in torch.linspace(0, drop_path_rate, stage_blocks*self.stage_num)] 
+        cur = 0
+        for i in range(self.stage_num):
+            # Build downsample layers
+            if i == self.stage_num - 1:
+                downsample_layer = nn.Sequential(
+                    LayerNorm(dims[i-1], eps=1e-6, data_format="channels_first"),
+                    nn.Conv2d(dims[i-1], dims[i], kernel_size=strds[i], stride=strds[i]),
+                )            
+            elif i > 0:
+                downsample_layer = nn.Sequential(
+                    LayerNorm(dims[i-1], eps=1e-6, data_format="channels_first"),
+                    MambaConv2d(dims[i-1], dims[i], kernel_size=strds[i], stride=strds[i]),
+                )
+            else:
+                downsample_layer = nn.Sequential(
+                    MambaConv2d(in_chans, dims[0], kernel_size=strds[i], stride=strds[i]), 
+                    LayerNorm(dims[0], eps=1e-6, data_format="channels_first")
+                )                    
+            self.downsample_layers.append(downsample_layer)
+
+            # Build more blocks
+            stage = nn.Sequential(
+                *[Block(dim=dims[i], drop_path=dp_rates[cur + j], 
+                layer_scale_init_value=layer_scale_init_value) for j in range(stage_blocks)]
+            )
+            self.stages.append(stage)
+            cur += stage_blocks
+
+        self.apply(self._init_weights)
+
+    def _init_weights(self, m):
+        if isinstance(m, (nn.Conv2d, nn.Linear)):
+            trunc_normal_(m.weight, std=.02)
+            if m.bias is not None:
+                nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
         out_list = []
