@@ -13,7 +13,7 @@ import torch.multiprocessing as mp
 import torch.optim as optim
 import torch.utils.data
 from torch.utils.tensorboard import SummaryWriter
-from model_all import VideoDataSet, HNeRV, MambaNeRV, MambaHNeRV, HNeRVDecoder, TransformInput
+from model_all import VideoDataSet, HNeRV, MambaNeRV, MambaHNeRV, MambaIntermHNeRV, HNeRVDecoder, TransformInput
 from hnerv_utils import *
 from torch.utils.data import Subset
 from copy import deepcopy
@@ -193,9 +193,9 @@ def train(local_rank, args):
     args.fc_dim = int(np.roots([a,b,c - decoder_size]).max())
 
     # Building model
-    model = HNeRV(args)
+    # model = HNeRV(args)
     # model = MambaNeRV(args)
-    # model = MambaHNeRV(args)
+    model = MambaIntermHNeRV(args)
 
     ##### get model params and flops #####
     if local_rank in [0, None]:
@@ -215,7 +215,7 @@ def train(local_rank, args):
     # distrite model to gpu or parallel
     print("Use GPU: {} for training".format(local_rank))
     if args.distributed and args.ngpus_per_node > 1:
-        model = torch.nn.parallel.DistributedDataParallel(model.to(local_rank), device_ids=[local_rank], output_device=local_rank, find_unused_parameters=True)
+        model = torch.nn.parallel.DistributedDataParallel(model.to(local_rank), device_ids=[local_rank], output_device=local_rank, find_unused_parameters=False)
     elif torch.cuda.is_available():
         model = model.cuda()
     elif args.ngpus_per_node > 1:
@@ -249,6 +249,11 @@ def train(local_rank, args):
         checkpoint_path = os.path.join(args.outf, 'model_latest.pth')
         if os.path.isfile(checkpoint_path):
             checkpoint = torch.load(checkpoint_path, map_location='cpu')
+            # model_dict = model.state_dict()
+            # pretrained_dict = {k: v for k, v in checkpoint['state_dict'].items() if k in model_dict}
+            # unused_dict = {k: v for k, v in pretrained_dict.items() if not k in model_dict}
+            # not_found_dict = {k: v for k, v in model_dict.items() if not k in pretrained_dict}
+            # print(not_found_dict.keys())
             model.load_state_dict(checkpoint['state_dict'])
             print("=> Auto resume loaded checkpoint '{}' (epoch {})".format(checkpoint_path, checkpoint['epoch']))
         else:
@@ -354,6 +359,7 @@ def train(local_rank, args):
 
         state_dict = model.state_dict()
         save_checkpoint = {
+            'cfg': args,
             'epoch': epoch+1,
             'state_dict': state_dict,
             'optimizer': optimizer.state_dict(),   
