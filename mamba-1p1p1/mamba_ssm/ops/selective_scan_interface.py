@@ -362,7 +362,7 @@ class MambaInnerFn(torch.autograd.Function):
         ctx.save_for_backward(xz, conv1d_weight, conv1d_bias, x_dbl, x_proj_weight,
                               delta_proj_weight, out_proj_weight, conv1d_out, delta,
                               A, B, C, D, delta_bias, scan_intermediates, out)
-        return F.linear(rearrange(out_z, "b d l -> b l d"), out_proj_weight, out_proj_bias), scan_intermediates
+        return F.linear(rearrange(out_z, "b d l -> b l d"), out_proj_weight, out_proj_bias)
 
     @staticmethod
     @custom_bwd
