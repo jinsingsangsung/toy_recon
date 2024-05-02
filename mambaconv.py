@@ -10,6 +10,8 @@ from torch.nn.modules.utils import _single, _pair, _triple, _reverse_repeat_tupl
 from torch.nn.modules.conv import _ConvNd
 from typing import Optional, List, Tuple, Union
 from mamba_ssm.modules.mamba_simple_og import Mamba, Block
+from pos_embedding import build_position_encoding
+from timm.models.layers import DropPath
 
 try:
     from mamba_ssm.ops.triton.layernorm import RMSNorm, layer_norm_fn, rms_norm_fn
@@ -28,6 +30,8 @@ class MambaConv2d(_ConvNd):
         groups: int = 1,
         bias: bool = True,
         padding_mode: str = 'zeros',  # TODO: refine this type
+        rms_norm: bool = False,
+        drop_path: float = 0.,
         device=None,
         dtype=None
     ) -> None:
@@ -39,23 +43,39 @@ class MambaConv2d(_ConvNd):
         super().__init__(
             in_channels, out_channels, kernel_size_, stride_, padding_, dilation_,
             False, _pair(0), groups, bias, padding_mode, **factory_kwargs)
-        assert out_channels % in_channels == 0, \
-            f"output channel size {out_channels} must be divisible by input channel size {in_channels}"
+        # assert out_channels % in_channels == 0, \
+        #     f"output channel size {out_channels} must be divisible by input channel size {in_channels}"
         d_state = kernel_size**2 // 2
-        num_kernels = out_channels // in_channels
-        self.mamba_kernels = nn.ModuleList([
-            partial(Mamba, d_state=d_state, layer_idx=layer_idx, **factory_kwargs)(in_channels)
-            for layer_idx in range(num_kernels)
-        ])
+        num_kernels = 1
         # self.mamba_kernels = nn.ModuleList([
-        #     create_block(
-        #         d_model=in_channels,
-        #         d_state=d_state,
-        #         layer_idx = i,
-        #         **factory_kwargs,
-        #     )
-        #     for i in range(num_kernels)
+        #     partial(Mamba, d_state=d_state, layer_idx=layer_idx, **factory_kwargs)(in_channels)
+        #     for layer_idx in range(num_kernels)
         # ])
+        self.pos_embed = build_position_encoding(N_steps=in_channels//2)
+        self.agg_token_pe = nn.Parameter(torch.zeros(1, 1, in_channels))
+        self.agg_token = nn.Parameter(torch.zeros(1, 1, in_channels))
+        self.mamba_kernels = nn.ModuleList([
+            create_block(
+                d_model=in_channels,
+                d_state=d_state,
+                layer_idx = i,
+                rms_norm = rms_norm,
+                **factory_kwargs,
+            )
+            for i in range(num_kernels)
+        ])
+        self.norm_f = (nn.LayerNorm if not rms_norm else RMSNorm)(
+            in_channels, eps=1e-5, **factory_kwargs
+        )        
+        self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
+        self.conv = nn.Conv2d(in_channels, out_channels, 1, 1)
+
+    def fused_add_norm(self, hidden_states, residual):
+        if residual is None:
+            residual = hidden_states
+        else:
+            residual = residual + self.drop_path(hidden_states)
+        return self.norm_f(residual.to(dtype=self.norm_f.weight.dtype))   
 
     def forward(self, input: Tensor) -> Tensor:
         '''
@@ -69,11 +89,22 @@ class MambaConv2d(_ConvNd):
         # patchify input sequences
         input = input.unfold(dimension=2, size=self.kernel_size[0], step=self.stride[0])
         input = input.unfold(dimension=3, size=self.kernel_size[1], step=self.stride[1])
-        B, C, H2, W2, _, _ = input.shape
+        B, C, H2, W2, K1, K2 = input.shape
+        pos_embedding = self.pos_embed(input)
+        pos_embedding = repeat(pos_embedding, "B C K1 K2 -> B C H2 W2 K1 K2", H2=H2, W2=W2)
+        pos_embedding = rearrange(pos_embedding, "B C H2 W2 K1 K2 -> (B H2 W2) (K1 K2) C")
+        agg_token_pe = self.agg_token_pe.expand(B*H2*W2, -1, -1)
+        agg_token = self.agg_token.expand(B*H2*W2, -1, -1)
         input = rearrange(input, "B C H2 W2 K1 K2 -> (B H2 W2) (K1 K2) C")
+        
+        agg_token_position = K1*K2 // 2
+        input = torch.cat((input[:, :agg_token_position, :], agg_token, input[:, agg_token_position:, :]), dim=1)
+        pos = torch.cat((pos_embedding[:, :agg_token_position, :], agg_token_pe, pos_embedding[:, agg_token_position:, :]), dim=1)
+        input = input + pos
         # import pdb; pdb.set_trace()
-        output = torch.cat([rearrange(kernel(input)[:, -1, :], "(B H2 W2) C -> B C H2 W2", H2=H2, W2=W2)
+        output = torch.cat([rearrange(self.fused_add_norm(*kernel(input))[:, -1, :], "(B H2 W2) C -> B C H2 W2", H2=H2, W2=W2)
                   for kernel in self.mamba_kernels], dim=1)
+        output = self.conv(output)
         return output
 
 def create_block(

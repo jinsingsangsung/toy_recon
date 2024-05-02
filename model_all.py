@@ -18,10 +18,10 @@ from torch.nn.functional import interpolate
 import decord
 decord.bridge.set_bridge('torch')
 import glob
-from models_mamba import create_block
-from einops import rearrange
 from mambaconv import MambaConv2d
 
+
+# Video dataset
 class VideoDataSet(Dataset):
     def __init__(self, args):
         if os.path.isfile(args.data_path):
@@ -149,123 +149,6 @@ def OutImg(x, out_bias='tanh'):
         return x + float(out_bias)
 
 
-class MambaNeRV(nn.Module):
-    def __init__(self, args):
-        super().__init__()
-        self.embed = args.embed
-        ks_enc, ks_dec1, ks_dec2 = [int(x) for x in args.ks.split('_')]
-        enc_blks, dec_blks = [int(x) for x in args.num_blks.split('_')]
-        embed_dim = 3
-        d_state = 64
-
-        # BUILD Encoder LAYERS
-        if len(args.enc_strds):
-            self.encoder_layers = nn.ModuleList(
-                [
-                    create_block(
-                        embed_dim,
-                        d_state,
-                        # args.enc_strds[i]
-                    )
-                    for i in range(len(args.enc_strds))
-                ]
-            )
-            self.encoder = nn.Sequential(*self.encoder_layers)
-        
-        if len(args.dec_strds):
-            self.decoder_layers = nn.ModuleList(
-                [
-                    create_block(
-                        embed_dim,
-                        d_state,
-                        # args.enc_strds[i]
-                    )
-                    for i in range(len(args.enc_strds))
-                ]
-            )
-            self.decoder = nn.Sequential(*self.decoder_layers)        
-        # import pdb; pdb.set_trace()
-
-        # if len(args.enc_strds):
-        #     # enc_dim1, enc_dim2 = [int(x) for x in args.enc_dim.split('_')]
-        #     # c_in_list, c_out_list = [enc_dim1] * len(args.enc_strds), [enc_dim1] * len(args.enc_strds)
-        #     # c_out_list[-1] = enc_dim2
-        #     if args.conv_type[0] == 'convnext':
-        #         self.encoder = ConvNeXt(stage_blocks=enc_blks, strds=args.enc_strds, dims=c_out_list,
-        #             drop_path_rate=0)
-        #     else:
-        #         c_in_list[0] = 3
-        #         encoder_layers = []
-        #         for c_in, c_out, strd in zip(c_in_list, c_out_list, args.enc_strds):
-        #             encoder_layers.append(NeRVBlock(dec_block=False, conv_type=args.conv_type[0], ngf=c_in,
-        #              new_ngf=c_out, ks=ks_enc, strd=strd, bias=True, norm=args.norm, act=args.act))
-        #         self.encoder = nn.Sequential(*encoder_layers)
-        #     hnerv_hw = np.prod(args.enc_strds) // np.prod(args.dec_strds)
-        #     self.fc_h, self.fc_w = hnerv_hw, hnerv_hw
-        #     ch_in = enc_dim2
-        # else:
-        #     ch_in = 2 * int(args.embed.split('_')[-1])
-        #     self.pe_embed = PositionEncoding(args.embed)  
-        #     self.encoder = nn.Identity()
-        #     self.fc_h, self.fc_w = [int(x) for x in args.fc_hw.split('_')]
-
-        # BUILD Decoder LAYERS  
-        # decoder_layers = []        
-        # ngf = args.fc_dim
-        # out_f = int(ngf * self.fc_h * self.fc_w)
-        # decoder_layer1 = NeRVBlock(dec_block=False, conv_type='conv', ngf=ch_in, new_ngf=out_f, ks=0, strd=1, 
-        #     bias=True, norm=args.norm, act=args.act)
-        # decoder_layers.append(decoder_layer1)
-        # for i, strd in enumerate(args.dec_strds):                         
-        #     reduction = sqrt(strd) if args.reduce==-1 else args.reduce
-        #     new_ngf = int(max(round(ngf / reduction), args.lower_width))
-        #     for j in range(dec_blks):
-        #         cur_blk = NeRVBlock(dec_block=True, conv_type=args.conv_type[1], ngf=ngf, new_ngf=new_ngf, 
-        #             ks=min(ks_dec1+2*i, ks_dec2), strd=1 if j else strd, bias=True, norm=args.norm, act=args.act)
-        #         decoder_layers.append(cur_blk)
-        #         ngf = new_ngf
-        
-        # self.decoder = nn.ModuleList(decoder_layers)
-        # self.head_layer = nn.Conv2d(ngf, 3, 3, 1, 1) 
-        self.head_layer = nn.Conv3d(3, 3, 3, 1, 1) 
-        self.out_bias = args.out_bias
-        self.clip_len = args.clip_len
-
-    def forward(self, input, input_embed=None, encode_only=False):
-        '''
-        input: (B, 3, clip_len, H, W) if clip_len > 1 else (B, 3, H, W)
-        '''
-        if len(input.shape) == 4:
-            input = input[:,:,None]
-        t, h, w = input.shape[-3:]
-        if input_embed != None:
-            hidden_states = input_embed
-        else:
-            if 'pe' in self.embed:
-                input = self.pe_embed(input[:,None]).float()
-            hidden_states = rearrange(input, "B C T H W -> B (T H W) C")
-        residual = None
-        for layer in self.encoder_layers:
-            hidden_states, residual = layer(hidden_states=hidden_states, residual=residual)
-        embed_list = [residual]
-        dec_start = time.time()
-        for layer in self.decoder_layers:
-            hidden_states, residual = layer(hidden_states=hidden_states, residual=residual)
-            embed_list.append(residual)
-        # import pdb; pdb.set_trace; from IPython import embed; embed()     
-        
-        output = rearrange(residual, "B (T H W) C -> B C T H W",
-                                  T=t, H=h, W=w)
-        assert output.size(2) == self.clip_len, f"temporal output dimension should be {self.clip_len}, currently it's {output.size(2)}"
-        img_out = OutImg(self.head_layer(output), self.out_bias)
-        if len(img_out.shape) == 5:
-            img_out = img_out.flatten(2,3)
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
-        dec_time = time.time() - dec_start
-
-        return  img_out, embed_list, dec_time
-
 class HNeRV(nn.Module):
     def __init__(self, args):
         super().__init__()
@@ -279,7 +162,7 @@ class HNeRV(nn.Module):
             c_in_list, c_out_list = [enc_dim1] * len(args.enc_strds), [enc_dim1] * len(args.enc_strds)
             c_out_list[-1] = enc_dim2
             if args.conv_type[0] == 'convnext':
-                self.encoder = ConvNeXtMamba(stage_blocks=enc_blks, strds=args.enc_strds, dims=c_out_list,
+                self.encoder = MambaConvNeXt(stage_blocks=enc_blks, strds=args.enc_strds, dims=c_out_list,
                     drop_path_rate=0)
             else:
                 c_in_list[0] = 3
@@ -287,97 +170,6 @@ class HNeRV(nn.Module):
                 for c_in, c_out, strd in zip(c_in_list, c_out_list, args.enc_strds):
                     encoder_layers.append(NeRVBlock(dec_block=False, conv_type=args.conv_type[0], ngf=c_in,
                      new_ngf=c_out, ks=ks_enc, strd=strd, bias=True, norm=args.norm, act=args.act))
-                self.encoder = nn.Sequential(*encoder_layers)
-            hnerv_hw = np.prod(args.enc_strds) // np.prod(args.dec_strds)
-            self.fc_h, self.fc_w = hnerv_hw, hnerv_hw
-            ch_in = enc_dim2
-        else:
-            ch_in = 2 * int(args.embed.split('_')[-1])
-            self.pe_embed = PositionEncoding(args.embed)  
-            self.encoder = nn.Identity()
-            self.fc_h, self.fc_w = [int(x) for x in args.fc_hw.split('_')]
-        # BUILD Decoder LAYERS  
-        decoder_layers = []        
-        ngf = args.fc_dim
-        out_f = int(ngf * self.fc_h * self.fc_w)
-        decoder_layer1 = NeRVBlock(dec_block=False, conv_type='conv', ngf=ch_in, new_ngf=out_f, ks=0, strd=1, 
-            bias=True, norm=args.norm, act=args.act)
-        decoder_layers.append(decoder_layer1)
-        for i, strd in enumerate(args.dec_strds):                         
-            reduction = sqrt(strd) if args.reduce==-1 else args.reduce
-            new_ngf = int(max(round(ngf / reduction), args.lower_width))
-            for j in range(dec_blks):
-                cur_blk = NeRVBlock(dec_block=True, conv_type=args.conv_type[1], ngf=ngf, new_ngf=new_ngf, 
-                    ks=min(ks_dec1+2*i, ks_dec2), strd=1 if j else strd, bias=True, norm=args.norm, act=args.act)
-                decoder_layers.append(cur_blk)
-                ngf = new_ngf
-        
-        self.decoder = nn.ModuleList(decoder_layers)
-        self.head_layer = nn.Conv2d(ngf, 3, 3, 1, 1) 
-        self.out_bias = args.out_bias
-        # print(self.encoder.downsample_layers[0][0].mamba_kernels[0].in_proj.weight.device)
-        # print(self.head_layer.weight.device)
-
-    def forward(self, input, input_embed=None, encode_only=False):
-        '''
-        input: (B, clip_len, 3, H, W) if clip_len > 1 else (B, 3, H, W)
-        '''
-        if input_embed != None:
-            img_embed = input_embed
-        else:
-            if 'pe' in self.embed:
-                input = self.pe_embed(input[:,None]).float()
-            img_embed = self.encoder(input)
-
-        # import pdb; pdb.set_trace; from IPython import embed; embed()     
-        embed_list = [img_embed]
-        dec_start = time.time()
-        output = self.decoder[0](img_embed)
-        n, c, h, w = output.shape
-        output = output.view(n, -1, self.fc_h, self.fc_w, h, w).permute(0,1,4,2,5,3).reshape(n,-1,self.fc_h * h, self.fc_w * w)
-        embed_list.append(output)
-        for layer in self.decoder[1:]:
-            output = layer(output) 
-            embed_list.append(output)
-
-        img_out = OutImg(self.head_layer(output), self.out_bias)
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
-        dec_time = time.time() - dec_start
-
-        return  img_out, embed_list, dec_time
-
-class MambaHNeRV(nn.Module):
-    def __init__(self, args):
-        super().__init__()
-        self.embed = args.embed
-        ks_enc, ks_dec1, ks_dec2 = [int(x) for x in args.ks.split('_')]
-        enc_blks, dec_blks = [int(x) for x in args.num_blks.split('_')]
-        self.mamba_layers = nn.ModuleList(
-                [
-                    create_block(
-                        16,
-                        16,
-                        # args.enc_strds[i]
-                    )
-                    for i in range(4)
-                ]
-            )
-        # BUILD Encoder LAYERS
-        if len(args.enc_strds):         #HNeRV
-            enc_dim1, enc_dim2 = [int(x) for x in args.enc_dim.split('_')]
-            c_in_list, c_out_list = [enc_dim1] * len(args.enc_strds), [enc_dim1] * len(args.enc_strds)
-            c_out_list[-1] = enc_dim2
-            if args.conv_type[0] == 'convnext':
-                self.encoder = ConvNeXt(stage_blocks=enc_blks, strds=args.enc_strds, dims=c_out_list,
-                    drop_path_rate=0)
-            else:
-                c_in_list[0] = 3
-                encoder_layers = []
-                for c_in, c_out, strd in zip(c_in_list, c_out_list, args.enc_strds):
-                    encoder_layers.append(NeRVBlock(dec_block=False, conv_type=args.conv_type[0], ngf=c_in,
-                     new_ngf=c_out, ks=ks_enc, strd=strd, bias=True, norm=args.norm, act=args.act))
-                # encoder_layers.extend(self.mamba_layers)
                 self.encoder = nn.Sequential(*encoder_layers)
             hnerv_hw = np.prod(args.enc_strds) // np.prod(args.dec_strds)
             self.fc_h, self.fc_w = hnerv_hw, hnerv_hw
@@ -409,22 +201,13 @@ class MambaHNeRV(nn.Module):
         self.out_bias = args.out_bias
 
     def forward(self, input, input_embed=None, encode_only=False):
-        '''
-        input: (B, clip_len, 3, H, W) if clip_len > 1 else (B, 3, H, W)
-        '''
         if input_embed != None:
             img_embed = input_embed
         else:
             if 'pe' in self.embed:
                 input = self.pe_embed(input[:,None]).float()
             img_embed = self.encoder(input)
-        # print("img_embed.shape: ", img_embed.shape)
-        h, w = img_embed.shape[-2:]
-        hidden_states = rearrange(img_embed, "B C H W -> B (H W) C")
-        residual = None
-        for layer in self.mamba_layers:
-            hidden_states, residual = layer(hidden_states=hidden_states, residual=residual)
-        img_embed = rearrange(residual, "B (H W) C -> B C H W", H=h, W=w)
+
         # import pdb; pdb.set_trace; from IPython import embed; embed()     
         embed_list = [img_embed]
         dec_start = time.time()
@@ -435,6 +218,8 @@ class MambaHNeRV(nn.Module):
         for layer in self.decoder[1:]:
             output = layer(output) 
             embed_list.append(output)
+        # print([a.shape for a in embed_list])
+        # import pdb; pdb.set_trace()
 
         img_out = OutImg(self.head_layer(output), self.out_bias)
         if torch.cuda.is_available():
@@ -443,117 +228,14 @@ class MambaHNeRV(nn.Module):
 
         return  img_out, embed_list, dec_time
 
-class MambaIntermHNeRV(nn.Module):
-    def __init__(self, args):
-        super().__init__()
-        self.embed = args.embed
-        ks_enc, ks_dec1, ks_dec2 = [int(x) for x in args.ks.split('_')]
-        enc_blks, dec_blks = [int(x) for x in args.num_blks.split('_')]
-        self.mamba_layers = nn.ModuleList(
-                [
-                    create_block(
-                        16,
-                        16,
-                        # args.enc_strds[i]
-                    )
-                    for i in range(4)
-                ]
-            )
-        # BUILD Encoder LAYERS
-        if len(args.enc_strds):         #HNeRV
-            enc_dim1, enc_dim2 = [int(x) for x in args.enc_dim.split('_')]
-            c_in_list, c_out_list = [enc_dim1] * len(args.enc_strds), [enc_dim1] * len(args.enc_strds)
-            c_out_list[-1] = enc_dim2
-            mamba_c_in_list = [3] + c_in_list
-            if args.conv_type[0] == 'convnext':
-                self.encoder = ConvNeXt(stage_blocks=enc_blks, strds=args.enc_strds, dims=c_out_list,
-                    drop_path_rate=0)
-            else:
-                c_in_list[0] = 3
-                encoder_layers = []
-                for c_in, c_out, strd in zip(c_in_list, c_out_list, args.enc_strds):
-                    encoder_layers.append(NeRVBlock(dec_block=False, conv_type=args.conv_type[0], ngf=c_in,
-                     new_ngf=c_out, ks=ks_enc, strd=strd, bias=True, norm=args.norm, act=args.act))
-                # encoder_layers.extend(self.mamba_layers)
-                self.encoder = nn.Sequential(*encoder_layers)
-            hnerv_hw = np.prod(args.enc_strds) // np.prod(args.dec_strds)
-            self.fc_h, self.fc_w = hnerv_hw, hnerv_hw
-            ch_in = enc_dim2
-        else:
-            ch_in = 2 * int(args.embed.split('_')[-1])
-            self.pe_embed = PositionEncoding(args.embed)  
-            self.encoder = nn.Identity()
-            self.fc_h, self.fc_w = [int(x) for x in args.fc_hw.split('_')]
-
-        # BUILD Decoder LAYERS  
-        decoder_layers = []        
-        ngf = args.fc_dim
-        out_f = int(ngf * self.fc_h * self.fc_w)
-        decoder_layer1 = NeRVBlock(dec_block=False, conv_type='conv', ngf=ch_in, new_ngf=out_f, ks=0, strd=1, 
-            bias=True, norm=args.norm, act=args.act)
-        decoder_layers.append(decoder_layer1)
-        for i, strd in enumerate(args.dec_strds):                         
-            reduction = sqrt(strd) if args.reduce==-1 else args.reduce
-            new_ngf = int(max(round(ngf / reduction), args.lower_width))
-            for j in range(dec_blks):
-                cur_blk = NeRVBlock(dec_block=True, conv_type=args.conv_type[1], ngf=ngf, new_ngf=new_ngf, 
-                    ks=min(ks_dec1+2*i, ks_dec2), strd=1 if j else strd, bias=True, norm=args.norm, act=args.act)
-                decoder_layers.append(cur_blk)
-                ngf = new_ngf
-        
-        self.decoder = nn.ModuleList(decoder_layers)
-        self.head_layer = nn.Conv2d(ngf, 3, 3, 1, 1) 
-        self.out_bias = args.out_bias
-
-    def forward(self, input, input_embed=None, encode_only=False):
-        '''
-        input: (B, clip_len, 3, H, W) if clip_len > 1 else (B, 3, H, W)
-        '''
-        if input_embed != None:
-            img_embed = input_embed
-        else:
-            if 'pe' in self.embed:
-                input = self.pe_embed(input[:,None]).float()
-            img_embed = self.encoder(input)
-        # print("img_embed.shape: ", img_embed.shape)
-        h, w = img_embed.shape[-2:]
-        hidden_states = rearrange(img_embed, "B C H W -> B (H W) C")
-        residual = None
-        for layer in self.mamba_layers:
-            hidden_states, residual = layer(hidden_states=hidden_states, residual=residual)
-        img_embed = rearrange(residual, "B (H W) C -> B C H W", H=h, W=w)
-        # import pdb; pdb.set_trace; from IPython import embed; embed()     
-        embed_list = [img_embed]
-        dec_start = time.time()
-        output = self.decoder[0](img_embed)
-        n, c, h, w = output.shape
-        output = output.view(n, -1, self.fc_h, self.fc_w, h, w).permute(0,1,4,2,5,3).reshape(n,-1,self.fc_h * h, self.fc_w * w)
-        embed_list.append(output)
-        for layer in self.decoder[1:]:
-            output = layer(output) 
-            embed_list.append(output)
-
-        img_out = OutImg(self.head_layer(output), self.out_bias)
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
-        dec_time = time.time() - dec_start
-
-        return  img_out, embed_list, dec_time
 
 class HNeRVDecoder(nn.Module):
-    def __init__(self, model, args):
+    def __init__(self, model):
         super().__init__()
-        self.args = args
-        if args.distributed:
-            self.fc_h, self.fc_w = [torch.tensor(x) for x in [model.module.fc_h, model.module.fc_w]]
-            self.out_bias = model.module.out_bias
-            self.decoder = model.module.decoder
-            self.head_layer = model.module.head_layer            
-        else:
-            self.fc_h, self.fc_w = [torch.tensor(x) for x in [model.fc_h, model.fc_w]]
-            self.out_bias = model.out_bias
-            self.decoder = model.decoder
-            self.head_layer = model.head_layer
+        self.fc_h, self.fc_w = [torch.tensor(x) for x in [model.fc_h, model.fc_w]]
+        self.out_bias = model.out_bias
+        self.decoder = model.decoder
+        self.head_layer = model.head_layer
 
     def forward(self, img_embed):
         output = self.decoder[0](img_embed)
@@ -758,6 +440,7 @@ class Block(nn.Module):
         x = input + self.drop_path(x)
         return x
 
+
 class ConvNeXt(nn.Module):
     r""" ConvNeXt
         A PyTorch impl of : `A ConvNet for the 2020s`  -
@@ -776,6 +459,7 @@ class ConvNeXt(nn.Module):
             in_chans=3, drop_path_rate=0., layer_scale_init_value=1e-6,
                  ):
         super().__init__()
+
         self.downsample_layers = nn.ModuleList() # stem and 3 intermediate downsampling conv layers
         self.stages = nn.ModuleList() # 4 feature resolution stages, each consisting of multiple residual blocks
         self.stage_num = len(dims)
@@ -786,7 +470,6 @@ class ConvNeXt(nn.Module):
             if i > 0:
                 downsample_layer = nn.Sequential(
                         LayerNorm(dims[i-1], eps=1e-6, data_format="channels_first"),
-                        create_block(dims[i-1], 16),
                         nn.Conv2d(dims[i-1], dims[i], kernel_size=strds[i], stride=strds[i]),
                 )
             else:
@@ -809,30 +492,17 @@ class ConvNeXt(nn.Module):
     def _init_weights(self, m):
         if isinstance(m, (nn.Conv2d, nn.Linear)):
             trunc_normal_(m.weight, std=.02)
-            if m.bias is not None:
-                nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
         out_list = []
-        interm_list = []
         for i in range(self.stage_num):
-            for downsample_layer in self.downsample_layers:
-                for layer in downsample_layer:
-                    if not isinstance(layer, (LayerNorm, nn.Conv2d)):
-                        h, w = x.shape[-2:]
-                        x = rearrange(x, 'b c h w -> b (h w) c')
-                        _, state, residual = layer(x)
-                        import pdb; pdb.set_trace()
-                        x = rearrange(x, 'b (h w) c -> b c h w', h=h, w=w)
-                        interm_list.append(x)
-                    else:
-                        x = layer(x)
+            x = self.downsample_layers[i](x)
             x = self.stages[i](x)
             out_list.append(x)
         return out_list[-1]
 
-
-class ConvNeXtMamba(nn.Module):
+class MambaConvNeXt(nn.Module):
     r""" ConvNeXt
         A PyTorch impl of : `A ConvNet for the 2020s`  -
           https://arxiv.org/pdf/2201.03545.pdf
@@ -858,21 +528,16 @@ class ConvNeXtMamba(nn.Module):
         cur = 0
         for i in range(self.stage_num):
             # Build downsample layers
-            if i == self.stage_num - 1:
+            if i > 0:
                 downsample_layer = nn.Sequential(
-                    LayerNorm(dims[i-1], eps=1e-6, data_format="channels_first"),
-                    nn.Conv2d(dims[i-1], dims[i], kernel_size=strds[i], stride=strds[i]),
-                )            
-            elif i > 0:
-                downsample_layer = nn.Sequential(
-                    LayerNorm(dims[i-1], eps=1e-6, data_format="channels_first"),
-                    MambaConv2d(dims[i-1], dims[i], kernel_size=strds[i], stride=strds[i]),
+                        LayerNorm(dims[i-1], eps=1e-6, data_format="channels_first"),
+                        MambaConv2d(dims[i-1], dims[i], kernel_size=strds[i], stride=strds[i]),
                 )
             else:
                 downsample_layer = nn.Sequential(
-                    MambaConv2d(in_chans, dims[0], kernel_size=strds[i], stride=strds[i]), 
+                    nn.Conv2d(in_chans, dims[0], kernel_size=strds[i], stride=strds[i]),
                     LayerNorm(dims[0], eps=1e-6, data_format="channels_first")
-                )                    
+                )                
             self.downsample_layers.append(downsample_layer)
 
             # Build more blocks
