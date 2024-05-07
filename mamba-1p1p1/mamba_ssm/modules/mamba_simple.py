@@ -180,7 +180,6 @@ class Mamba(nn.Module):
                 # The states are updated inplace
                 out, _, _ = self.step(hidden_states, conv_state, ssm_state)
                 return out
-        import pdb; pdb.set_trace()
         # We do matmul and transpose BLH -> HBL at the same time
         xz = rearrange(
             self.in_proj.weight @ rearrange(hidden_states, "b l d -> d (b l)"),
@@ -300,7 +299,6 @@ class Mamba(nn.Module):
                 delta_softplus=True,
                 return_last_state=ssm_state is not None,
             )
-            import pdb; pdb.set_trace()
             if ssm_state is not None:
                 y, last_state = y
                 ssm_state.copy_(last_state)
