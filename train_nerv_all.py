@@ -211,7 +211,7 @@ def train(local_rank, args):
     # distrite model to gpu or parallel
     print("Use GPU: {} for training".format(local_rank))
     if args.distributed and args.ngpus_per_node > 1:
-        model = torch.nn.parallel.DistributedDataParallel(model.to(local_rank), device_ids=[local_rank], output_device=local_rank, find_unused_parameters=False)
+        model = torch.nn.parallel.DistributedDataParallel(model.to(local_rank), device_ids=[local_rank], output_device=local_rank, find_unused_parameters=True)
     elif torch.cuda.is_available():
         model = model.cuda()
     elif args.ngpus_per_node > 1:
@@ -476,7 +476,7 @@ def evaluate(model, full_dataloader, local_rank, args,
     if local_rank in [0, None] and quant_ckt != None:
         quant_vid = {'embed': quant_embed, 'model': quant_ckt}
         torch.save(quant_vid, f'{args.outf}/quant_vid.pth')
-        torch.jit.save(torch.jit.trace(HNeRVDecoder(model), (vid_embed[:2])), f'{args.outf}/img_decoder.pth')
+        # torch.jit.save(torch.jit.trace(HNeRVDecoder(model), (vid_embed[:2])), f'{args.outf}/img_decoder.pth')
         # huffman coding
         if huffman_coding:
             quant_v_list = quant_embed['quant'].flatten().tolist()

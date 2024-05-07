@@ -18,7 +18,7 @@ from torch.nn.functional import interpolate
 import decord
 decord.bridge.set_bridge('torch')
 import glob
-from mambaconv import MambaConv2d
+from mambaconv import MambaConv2d, MambaGlobalConv2d
 
 
 # Video dataset
@@ -122,6 +122,8 @@ class NeRVBlock(nn.Module):
     def __init__(self, **kargs):
         super().__init__()
         conv = UpConv if kargs['dec_block'] else DownConv
+        if isinstance(conv, UpConv):
+            print(kargs["ks"])
         self.conv = conv(ngf=kargs['ngf'], new_ngf=kargs['new_ngf'], strd=kargs['strd'], ks=kargs['ks'], 
             conv_type=kargs['conv_type'], bias=kargs['bias'])
         self.norm = NormLayer(kargs['norm'], kargs['new_ngf'])
@@ -187,10 +189,15 @@ class HNeRV(nn.Module):
         decoder_layer1 = NeRVBlock(dec_block=False, conv_type='conv', ngf=ch_in, new_ngf=out_f, ks=0, strd=1, 
             bias=True, norm=args.norm, act=args.act)
         decoder_layers.append(decoder_layer1)
+        output_dim = [(2,4), (10,20), (40,80), (160, 320), (320, 640), (640, 1280)]
+        reverse_strds = args.dec_strds[::-1]
         for i, strd in enumerate(args.dec_strds):                         
             reduction = sqrt(strd) if args.reduce==-1 else args.reduce
             new_ngf = int(max(round(ngf / reduction), args.lower_width))
             for j in range(dec_blks):
+                if i < 4:
+                    mamba_blk = MambaConv2d(ngf, ngf, reverse_strds[i], reverse_strds[i], dim_preserve=True)
+                    decoder_layers.append(mamba_blk)
                 cur_blk = NeRVBlock(dec_block=True, conv_type=args.conv_type[1], ngf=ngf, new_ngf=new_ngf, 
                     ks=min(ks_dec1+2*i, ks_dec2), strd=1 if j else strd, bias=True, norm=args.norm, act=args.act)
                 decoder_layers.append(cur_blk)
@@ -219,7 +226,6 @@ class HNeRV(nn.Module):
             output = layer(output) 
             embed_list.append(output)
         # print([a.shape for a in embed_list])
-        # import pdb; pdb.set_trace()
 
         img_out = OutImg(self.head_layer(output), self.out_bias)
         if torch.cuda.is_available():
