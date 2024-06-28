@@ -63,12 +63,13 @@ class MambaConv2d(_ConvNd):
             rms_norm = False
         else:
             self.agg_token = nn.Parameter(torch.zeros(1, 1, in_channels))
-            self.pos_embed = nn.Parameter(torch.zeros(1, kernel_size**2+1, in_channels))
+            self.pos_embed = nn.Parameter(torch.zeros(1, kernel_size**2, 4*in_channels))
         trunc_normal_(self.pos_embed, std=.02)      
         
+        mamba_channels = 4*in_channels
         self.mamba_kernels = nn.ModuleList([
             create_block(
-                d_model=in_channels,
+                d_model=mamba_channels,
                 d_state=d_state,
                 layer_idx = i,
                 rms_norm = rms_norm,
@@ -79,13 +80,14 @@ class MambaConv2d(_ConvNd):
             for i in range(num_kernels)
         ])
         self.norm_f = (nn.LayerNorm if not rms_norm else RMSNorm)(
-            in_channels, eps=1e-5, **factory_kwargs
-        )        
+            mamba_channels, eps=1e-5, **factory_kwargs
+        )
+        self.linear = nn.Conv2d(mamba_channels, out_channels, 1, 1)
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
         if not dim_preserve:
-            self.conv = nn.Conv2d(in_channels, out_channels, 1, 1)
-            self.token_position = "middle"
-            # self.token_position = "end"
+            self.conv = nn.Conv2d(4*in_channels, out_channels, 1, 1)
+            # self.token_position = "middle"
+            self.token_position = "end"
             # self.token_position = "first"
 
     def fused_add_norm(self, hidden_states, residual):
@@ -117,7 +119,13 @@ class MambaConv2d(_ConvNd):
         # pos_embedding = rearrange(pos_embedding, "B C H2 W2 K1 K2 -> (B H2 W2) (K1 K2) C")
         # agg_token_pe = self.agg_token_pe.expand(B*H2*W2, -1, -1)
         agg_token = self.agg_token.expand(B*H2*W2, -1, -1)
-        input = rearrange(input, "B C H2 W2 K1 K2 -> (B H2 W2) (K1 K2) C")
+        # input = rearrange(input, "B C H2 W2 K1 K2 -> (B H2 W2) (K1 K2) C")
+        input = rearrange(input, "B C H2 W2 K1 K2 -> (B H2 W2) K1 K2 C")
+        ssm_output = []
+        for i, dir in enumerate([(),(1),(2),(1,2)]):
+            dir_input = input.flip(dir)
+            ssm_output.append(dir_input)
+        input = torch.cat(ssm_output, dim=-1).flatten(1,2)
         
         if self.token_position == "middle":
             agg_token_position = K1*K2 // 2
@@ -134,7 +142,7 @@ class MambaConv2d(_ConvNd):
             # input = torch.cat((input, pos), dim=-1)
             input = input + pos
             output = torch.cat([rearrange(self.fused_add_norm(*kernel(input))[:, -1, :], "(B H2 W2) C -> B C H2 W2", H2=H2, W2=W2)
-                    for kernel in self.mamba_kernels], dim=1)            
+                    for kernel in self.mamba_kernels], dim=1)     
         elif self.token_position == "first":
             # input = torch.cat((agg_token, input), dim=1)
             # pos = torch.cat((agg_token_pe, pos_embedding), dim=1)
@@ -143,6 +151,7 @@ class MambaConv2d(_ConvNd):
             output = torch.cat([rearrange(self.fused_add_norm(*kernel(input))[:, 0, :], "(B H2 W2) C -> B C H2 W2", H2=H2, W2=W2)
                     for kernel in self.mamba_kernels], dim=1)               
         output = self.conv(output)
+        # output = self.linear(output)
         return output
     
     def dim_preserving_forward(self, input: Tensor) -> Tensor:

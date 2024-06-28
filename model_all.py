@@ -195,9 +195,9 @@ class HNeRV(nn.Module):
             reduction = sqrt(strd) if args.reduce==-1 else args.reduce
             new_ngf = int(max(round(ngf / reduction), args.lower_width))
             for j in range(dec_blks):
-                if i < 4:
-                    mamba_blk = MambaConv2d(ngf, ngf, reverse_strds[i], reverse_strds[i], dim_preserve=True)
-                    decoder_layers.append(mamba_blk)
+                # if i < 4:
+                #     mamba_blk = MambaConv2d(ngf, ngf, reverse_strds[i], reverse_strds[i], dim_preserve=True)
+                #     decoder_layers.append(mamba_blk)
                 cur_blk = NeRVBlock(dec_block=True, conv_type=args.conv_type[1], ngf=ngf, new_ngf=new_ngf, 
                     ks=min(ks_dec1+2*i, ks_dec2), strd=1 if j else strd, bias=True, norm=args.norm, act=args.act)
                 decoder_layers.append(cur_blk)
