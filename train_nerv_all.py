@@ -24,8 +24,8 @@ import pandas as pd
 def main():
     parser = argparse.ArgumentParser()
     # Dataset parameters
-    parser.add_argument('--data_path', type=str, default='', help='data path for vid')
-    parser.add_argument('--vid', type=str, default='k400_train0', help='video id',)
+    parser.add_argument('--data_path', type=str, default='data/bunny', help='data path for vid')
+    parser.add_argument('--vid', type=str, default='bunny', help='video id',)
     parser.add_argument('--shuffle_data', action='store_true', help='randomly shuffle the frame idx')
     parser.add_argument('--data_split', type=str, default='1_1_1', 
         help='Valid_train/total_train/all data split, e.g., 18_19_20 means for every 20 samples, the first 19 samples is full train set, and the first 18 samples is chose currently')
@@ -36,8 +36,8 @@ def main():
     # NERV architecture parameters
     # Embedding and encoding parameters
     parser.add_argument('--embed', type=str, default='', help='empty string for HNeRV, and base value/embed_length for NeRV position encoding')
-    parser.add_argument('--ks', type=str, default='0_3_3', help='kernel size for encoder and decoder')
-    parser.add_argument('--enc_strds', type=int, nargs='+', default=[], help='stride list for encoder')
+    parser.add_argument('--ks', type=str, default='0_1_5', help='kernel size for encoder and decoder')
+    parser.add_argument('--enc_strds', type=int, nargs='+', default=[5,4,4,2,2], help='stride list for encoder')
     parser.add_argument('--enc_dim', type=str, default='64_16', help='enc latent dim and embedding ratio')
     parser.add_argument('--modelsize', type=float,  default=1.5, help='model parameters size: model size + embedding parameters')
     parser.add_argument('--saturate_stages', type=int, default=-1, help='saturate stages for model size computation')
@@ -45,8 +45,8 @@ def main():
     # Decoding parameters: FC + Conv
     parser.add_argument('--fc_hw', type=str, default='9_16', help='out size (h,w) for mlp')
     parser.add_argument('--reduce', type=float, default=1.2, help='chanel reduction for next stage')
-    parser.add_argument('--lower_width', type=int, default=32, help='lowest channel width for output feature maps')
-    parser.add_argument('--dec_strds', type=int, nargs='+', default=[5, 3, 2, 2, 2], help='strides list for decoder')
+    parser.add_argument('--lower_width', type=int, default=12, help='lowest channel width for output feature maps')
+    parser.add_argument('--dec_strds', type=int, nargs='+', default=[5, 4, 4, 2, 2], help='strides list for decoder')
     parser.add_argument('--num_blks', type=str, default='1_1', help='block number for encoder and decoder')
     parser.add_argument("--conv_type", default=['convnext', 'pshuffel'], type=str, nargs="+",
         help='conv type for encoder/decoder', choices=['pshuffel', 'conv', 'convnext', 'interpolate'])
@@ -59,16 +59,16 @@ def main():
     parser.add_argument('-b', '--batchSize', type=int, default=1, help='input batch size')
     parser.add_argument('--start_epoch', type=int, default=-1, help='starting epoch')
     parser.add_argument('--not_resume', action='store_true', help='not resume from latest checkpoint')
-    parser.add_argument('-e', '--epochs', type=int, default=5, help='Epoch number')
+    parser.add_argument('-e', '--epochs', type=int, default=300, help='Epoch number')
     parser.add_argument('--block_params', type=str, default='1_1', help='residual blocks and percentile to save')
-    parser.add_argument('--lr', type=float, default=0.001, help='learning rate, default=0.0002')
+    parser.add_argument('--lr', type=float, default=0.0002, help='learning rate, default=0.0002')
     parser.add_argument('--lr_type', type=str, default='cosine_0.1_1_0.1', help='learning rate type, default=cosine')
-    parser.add_argument('--loss', type=str, default='Fusion6', help='loss type, default=L2')
+    parser.add_argument('--loss', type=str, default='L2', help='loss type, default=L2')
     parser.add_argument('--out_bias', default='tanh', type=str, help='using sigmoid/tanh/0.5 for output prediction')
 
     # evaluation parameters
     parser.add_argument('--eval_only', action='store_true', default=False, help='do evaluation only')
-    parser.add_argument('--eval_freq', type=int, default=10, help='evaluation frequency,  added to suffix!!!!')
+    parser.add_argument('--eval_freq', type=int, default=30, help='evaluation frequency,  added to suffix!!!!')
     parser.add_argument('--quant_model_bit', type=int, default=8, help='bit length for model quantization')
     parser.add_argument('--quant_embed_bit', type=int, default=6, help='bit length for embedding quantization')
     parser.add_argument('--quant_axis', type=int, default=0, help='quantization axis (-1 means per tensor)')
@@ -201,7 +201,7 @@ def train(local_rank, args):
         total_param = decoder_param + embed_param / 1e6
         args.encoder_param, args.decoder_param, args.total_param = encoder_param, decoder_param, total_param
         param_str = f'Encoder_{round(encoder_param, 2)}M_Decoder_{round(decoder_param, 2)}M_Total_{round(total_param, 2)}M'
-        print(f'{args}\n {model}\n {param_str}', flush=True)
+        # print(f'{args}\n {model}\n {param_str}', flush=True)
         with open('{}/rank0.txt'.format(args.outf), 'a') as f:
             f.write(str(model) + '\n' + f'{param_str}\n')
         writer = SummaryWriter(os.path.join(args.outf, param_str, 'tensorboard'))
