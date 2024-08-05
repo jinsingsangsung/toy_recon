@@ -18,7 +18,7 @@ from torch.nn.functional import interpolate
 import decord
 decord.bridge.set_bridge('torch')
 import glob
-from mambaconv import MambaConv2d, MambaGlobalConv2d
+from mambaconv import MambaConv2d, MambaGlobalConv2d, MambaUpConv2d
 from einops import rearrange
 
 
@@ -166,7 +166,7 @@ class HNeRV(nn.Module):
             c_out_list[-1] = enc_dim2
             if args.conv_type[0] == 'convnext':
                 self.encoder = MambaConvNeXt(stage_blocks=enc_blks, strds=args.enc_strds, dims=c_out_list,
-                    drop_path_rate=0)
+                    drop_path_rate=0, multiscale_mamba=args.ms_mamba)
             else:
                 c_in_list[0] = 3
                 encoder_layers = []
@@ -535,11 +535,16 @@ class MambaConvNeXt(nn.Module):
         cur = 0
         for i in range(self.stage_num):
             # Build downsample layers
-            if i > 0:
+            if i > 2:
                 downsample_layer = nn.Sequential(
                         LayerNorm(dims[i-1], eps=1e-6, data_format="channels_first"),
                         MambaConv2d(dims[i-1], dims[i], kernel_size=strds[i], stride=strds[i]),
                 )
+            elif i in [1,2]:
+                downsample_layer = nn.Sequential(
+                        LayerNorm(dims[i-1], eps=1e-6, data_format="channels_first"),
+                        nn.Conv2d(dims[i-1], dims[i], kernel_size=strds[i], stride=strds[i]),
+                )                
             else:
                 downsample_layer = nn.Sequential(
                     nn.Conv2d(in_chans, dims[0], kernel_size=strds[i], stride=strds[i]),
@@ -555,7 +560,7 @@ class MambaConvNeXt(nn.Module):
             self.stages.append(stage)
             cur += stage_blocks
 
-        self.multi_scale_mamba = multiscale_mamba
+        self.multiscale_mamba = multiscale_mamba
         if multiscale_mamba:
             from mambaconv import create_block
             from mamba_ssm.ops.triton.layernorm import RMSNorm
@@ -619,8 +624,85 @@ class MambaConvNeXt(nn.Module):
             x = self.downsample_layers[i](x)
             x = self.stages[i](x)
             out_list.append(x)
-        if self.multi_scale_mamba:
+        if self.multiscale_mamba:
             out_list.append(self.multi_scale_mamba(out_list))
+        return (out_list[-1] + out_list[-2]) / 2
+
+
+class MambaDecoder(nn.Module):
+    r""" ConvNeXt
+        A PyTorch impl of : `A ConvNet for the 2020s`  -
+          https://arxiv.org/pdf/2201.03545.pdf
+
+    Args:
+        in_chans (int): Number of input image channels. Default: 3
+        num_classes (int): Number of classes for classification head. Default: 1000
+        depths (tuple(int)): Number of blocks at each stage. Default: [3, 3, 9, 3]
+        dims (int): Feature dimension at each stage. Default: [96, 192, 384, 768]
+        drop_path_rate (float): Stochastic depth rate. Default: 0.
+        layer_scale_init_value (float): Init value for Layer Scale. Default: 1e-6.
+        head_init_scale (float): Init scaling value for classifier weights and biases. Default: 1.
+    """
+    def __init__(self, stage_blocks=0, strds=[2,2,2,2], dims=[96, 192, 384, 768], 
+            in_chans=12, drop_path_rate=0., layer_scale_init_value=1e-6,
+                 ):
+        super().__init__()
+
+        self.downsample_layers = nn.ModuleList() # stem and 3 intermediate downsampling conv layers
+        self.stages = nn.ModuleList() # 4 feature resolution stages, each consisting of multiple residual blocks
+        self.stage_num = len(dims)
+        dp_rates=[x.item() for x in torch.linspace(0, drop_path_rate, stage_blocks*self.stage_num)] 
+        cur = 0
+        for i in range(self.stage_num):
+            # Build downsample layers
+            if i == 0:
+                downsample_layer = nn.Sequential(
+                        MambaUpConv2d(in_chans, dims[i], kernel_size=strds[i], stride=strds[i], dim_change=True),
+                        LayerNorm(dims[i], eps=1e-6, data_format="channels_first"),
+                )                
+            elif i in [1,2]:
+                downsample_layer = nn.Sequential(
+                        LayerNorm(dims[i-1], eps=1e-6, data_format="channels_first"),
+                        MambaUpConv2d(dims[i-1], dims[i], kernel_size=strds[i], stride=strds[i], dim_change=i<3),
+                )
+            else:
+                downsample_layer = nn.Sequential(
+                        LayerNorm(dims[i-1], eps=1e-6, data_format="channels_first"),
+                        UpConv2d(dims[i-1], dims[i], kernel_size=strds[i], stride=strds[i], dim_change=i<3),
+                )        
+            self.downsample_layers.append(downsample_layer)
+
+            # Build more blocks
+            stage = nn.Sequential(
+                *[Block(dim=dims[i], drop_path=dp_rates[cur + j], 
+                layer_scale_init_value=layer_scale_init_value) for j in range(stage_blocks)]
+            )
+            self.stages.append(stage)
+            cur += stage_blocks
+
+        self.apply(self._init_weights)
+
+    def _init_weights(self, m):
+        if isinstance(m, (nn.Conv2d, nn.Linear)):
+            trunc_normal_(m.weight, std=.02)
+            if m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+    
+    def initialize_upscale(self, weight: list):
+        for i in range(self.stage_num):
+            self.downsample_layers[i][int(i!=0)].initialize_upscale(weight[i])
+
+    def initialize_maps(self, weight: list):
+        for i in range(self.stage_num):
+            self.downsample_layers[i][int(i!=0)].initialize_maps(weight[i])
+
+    def forward(self, x):
+        out_list = []
+        for i in range(self.stage_num):
+            x = self.downsample_layers[i](x)
+            x = self.stages[i](x)
+            out_list.append(x)
+        # print([a.shape for a in out_list])
         return out_list[-1]
 
 

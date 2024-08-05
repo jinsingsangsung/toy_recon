@@ -88,6 +88,8 @@ def main():
     parser.add_argument('--overwrite', action='store_true', help='overwrite the output dir if already exists')
     parser.add_argument('--outf', default='unify', help='folder to output images and model checkpoints')
     parser.add_argument('--suffix', default='', help="suffix str for outf")
+    
+    parser.add_argument('--ms_mamba', action='store_true', help='apply multiscale mamba')
 
 
     args = parser.parse_args()
