@@ -217,7 +217,8 @@ def train(local_rank, args):
     elif args.ngpus_per_node > 1:
         model = torch.nn.DataParallel(model)
 
-    optimizer = optim.Adam(model.parameters(), weight_decay=0.)
+    from lion_pytorch import Lion
+    optimizer = Lion(model.parameters(), weight_decay=0.)
     args.transform_func = TransformInput(args)
 
     # resume from args.weight
