@@ -19,6 +19,7 @@ import decord
 decord.bridge.set_bridge('torch')
 import glob
 from mambaconv import MambaConv2d, MambaGlobalConv2d
+from einops import rearrange
 
 
 # Video dataset
@@ -523,7 +524,7 @@ class MambaConvNeXt(nn.Module):
         head_init_scale (float): Init scaling value for classifier weights and biases. Default: 1.
     """
     def __init__(self, stage_blocks=0, strds=[2,2,2,2], dims=[96, 192, 384, 768], 
-            in_chans=3, drop_path_rate=0., layer_scale_init_value=1e-6,
+            in_chans=3, drop_path_rate=0., layer_scale_init_value=1e-6, multiscale_mamba=True,
                  ):
         super().__init__()
 
@@ -554,6 +555,30 @@ class MambaConvNeXt(nn.Module):
             self.stages.append(stage)
             cur += stage_blocks
 
+        self.multi_scale_mamba = multiscale_mamba
+        if multiscale_mamba:
+            from mambaconv import create_block
+            from mamba_ssm.ops.triton.layernorm import RMSNorm
+            factory_kwargs = {'device': None, 'dtype': None}
+            d_state = 64
+            drop_path = 0.
+            rms_norm = True
+            mamba_channels = 64
+            self.mamba_block = create_block(
+                d_model=mamba_channels,
+                d_state=d_state,
+                rms_norm = rms_norm,
+                bimamba_type = "v2",
+                if_devide_out=True,
+                **factory_kwargs,
+            )
+            self.dim_matcher = nn.Conv2d(in_channels=16,out_channels=64,kernel_size=1,stride=1)
+            self.dim_matcher2 = nn.Conv2d(in_channels=64,out_channels=16,kernel_size=1,stride=1)
+            self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
+            self.norm_f = (nn.LayerNorm if not rms_norm else RMSNorm)(
+               mamba_channels, eps=1e-5, **factory_kwargs
+            )
+
         self.apply(self._init_weights)
 
     def _init_weights(self, m):
@@ -562,12 +587,40 @@ class MambaConvNeXt(nn.Module):
             if m.bias is not None:
                 nn.init.constant_(m.bias, 0)
 
+    def fused_add_norm(self, hidden_states, residual):
+        if residual is None:
+            residual = hidden_states
+        else:
+            residual = residual + self.drop_path(hidden_states)
+        return self.norm_f(residual.to(dtype=self.norm_f.weight.dtype))   
+
+    def multi_scale_mamba(self, multi_scale_list):
+        segmented_list = []
+        stride = [32,16,4,2,1]
+        b, c, h, w = multi_scale_list[-1].shape
+        for i, feature_map in enumerate(multi_scale_list):
+            # og_shape = feature_map.shape
+            if i == 0:
+                continue
+            else:
+                if i == len(multi_scale_list)-1:
+                    feature_map = self.dim_matcher(feature_map)
+                feature_map = feature_map.unfold(dimension=2, size=stride[i], step=stride[i])
+                feature_map = feature_map.unfold(dimension=3, size=stride[i], step=stride[i]) # b, c, h, 2, k, k
+                feature_map = rearrange(feature_map, 'b c h w k1 k2 -> (b h w) (k1 k2) c')
+            segmented_list.append(feature_map)
+        multi_scale_maps = torch.cat(segmented_list, dim=1)
+        multi_agg_feature_map = rearrange(self.fused_add_norm(*self.mamba_block(multi_scale_maps))[:, -1, :], "(b h w) c -> b c h w", h=h, w=w)
+        return self.dim_matcher2(multi_agg_feature_map)
+
     def forward(self, x):
         out_list = []
         for i in range(self.stage_num):
             x = self.downsample_layers[i](x)
             x = self.stages[i](x)
             out_list.append(x)
+        if self.multi_scale_mamba:
+            out_list.append(self.multi_scale_mamba(out_list))
         return out_list[-1]
 
 
