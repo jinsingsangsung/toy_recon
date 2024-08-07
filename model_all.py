@@ -196,11 +196,12 @@ class HNeRV(nn.Module):
             reduction = sqrt(strd) if args.reduce==-1 else args.reduce
             new_ngf = int(max(round(ngf / reduction), args.lower_width))
             for j in range(dec_blks):
-                # if i < 4:
-                #     mamba_blk = MambaConv2d(ngf, ngf, reverse_strds[i], reverse_strds[i], dim_preserve=True)
-                #     decoder_layers.append(mamba_blk)
+                # if i < 1:
+                #     cur_blk = NeRVBlock(dec_block=True, conv_type="mamba", ngf=ngf, new_ngf=new_ngf, 
+                #                         ks=min(ks_dec1+2*i, ks_dec2), strd=1 if j else strd, bias=True, norm=args.norm, act=args.act)
+                # else:
                 cur_blk = NeRVBlock(dec_block=True, conv_type=args.conv_type[1], ngf=ngf, new_ngf=new_ngf, 
-                    ks=min(ks_dec1+2*i, ks_dec2), strd=1 if j else strd, bias=True, norm=args.norm, act=args.act)
+                        ks=min(ks_dec1+2*i, ks_dec2), strd=1 if j else strd, bias=True, norm=args.norm, act=args.act)
                 decoder_layers.append(cur_blk)
                 ngf = new_ngf
         
@@ -349,6 +350,10 @@ class UpConv(nn.Module):
                 nn.Conv2d(ngf, new_ngf * strd * strd, ks, 1, ceil((ks - 1) // 2), bias=kargs['bias']),
                 nn.PixelShuffle(strd) if strd !=1 else nn.Identity(),
             )
+        elif  kargs['conv_type']  == 'mamba':
+            self.upconv = nn.Sequential(
+                MambaUpConv2d(ngf, new_ngf, strd, 1, ceil((ks - 1) // 2), bias=kargs['bias']),
+            )            
         elif  kargs['conv_type']  == 'conv':
             self.upconv = nn.ConvTranspose2d(ngf, new_ngf, ks+strd, strd, ceil(ks / 2))
         elif  kargs['conv_type']  == 'interpolate':
@@ -568,7 +573,7 @@ class MambaConvNeXt(nn.Module):
             d_state = 64
             drop_path = 0.
             rms_norm = True
-            mamba_channels = 64
+            mamba_channels = 4*64
             self.mamba_block = create_block(
                 d_model=mamba_channels,
                 d_state=d_state,
@@ -578,7 +583,7 @@ class MambaConvNeXt(nn.Module):
                 **factory_kwargs,
             )
             self.dim_matcher = nn.Conv2d(in_channels=16,out_channels=64,kernel_size=1,stride=1)
-            self.dim_matcher2 = nn.Conv2d(in_channels=64,out_channels=16,kernel_size=1,stride=1)
+            self.dim_matcher2 = nn.Conv2d(in_channels=4*64,out_channels=16,kernel_size=1,stride=1)
             self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
             self.norm_f = (nn.LayerNorm if not rms_norm else RMSNorm)(
                mamba_channels, eps=1e-5, **factory_kwargs
@@ -611,7 +616,12 @@ class MambaConvNeXt(nn.Module):
                 if i == len(multi_scale_list)-1:
                     feature_map = self.dim_matcher(feature_map)
                 feature_map = feature_map.unfold(dimension=2, size=stride[i], step=stride[i])
-                feature_map = feature_map.unfold(dimension=3, size=stride[i], step=stride[i]) # b, c, h, 2, k, k
+                feature_map = feature_map.unfold(dimension=3, size=stride[i], step=stride[i]) # b, c, h, w, k, k
+                feature_maps = []
+                for i, dir in enumerate([(),(4),(5),(4,5)]):
+                    dir_input = feature_map.flip(dir)
+                    feature_maps.append(dir_input)
+                feature_map = torch.cat(feature_maps, dim=1)
                 feature_map = rearrange(feature_map, 'b c h w k1 k2 -> (b h w) (k1 k2) c')
             segmented_list.append(feature_map)
         multi_scale_maps = torch.cat(segmented_list, dim=1)
@@ -626,7 +636,7 @@ class MambaConvNeXt(nn.Module):
             out_list.append(x)
         if self.multiscale_mamba:
             out_list.append(self.multi_scale_mamba(out_list))
-        return (out_list[-1] + out_list[-2]) / 2
+        return out_list[-1]
 
 
 class MambaDecoder(nn.Module):

@@ -204,6 +204,7 @@ def train(local_rank, args):
         args.encoder_param, args.decoder_param, args.total_param = encoder_param, decoder_param, total_param
         param_str = f'Encoder_{round(encoder_param, 2)}M_Decoder_{round(decoder_param, 2)}M_Total_{round(total_param, 2)}M'
         # print(f'{args}\n {model}\n {param_str}', flush=True)
+        print(f'{param_str}', flush=True)
         with open('{}/rank0.txt'.format(args.outf), 'a') as f:
             f.write(str(model) + '\n' + f'{param_str}\n')
         writer = SummaryWriter(os.path.join(args.outf, param_str, 'tensorboard'))
