@@ -51,7 +51,7 @@ def main():
     parser.add_argument("--conv_type", default=['convnext', 'pshuffel'], type=str, nargs="+",
         help='conv type for encoder/decoder', choices=['pshuffel', 'conv', 'convnext', 'interpolate'])
     parser.add_argument('--norm', default='none', type=str, help='norm layer for generator', choices=['none', 'bn', 'in'])
-    parser.add_argument('--act', type=str, default='gelu', help='activation to use', 
+    parser.add_argument('--act', type=str, default='swish', help='activation to use', 
         choices=['relu', 'leaky', 'leaky01', 'relu6', 'gelu', 'swish', 'softplus', 'hardswish'])
 
     # General training setups
