@@ -13,18 +13,20 @@ import torch.multiprocessing as mp
 import torch.optim as optim
 import torch.utils.data
 from torch.utils.tensorboard import SummaryWriter
-from model_all import VideoDataSet, HNeRV, HNeRVDecoder, TransformInput
+from model_all import Cifar, SimpleConv, HNeRVDecoder, TransformInput, SSMConv
+# from cifar import Cifar
 from hnerv_utils import *
 from torch.utils.data import Subset
 from copy import deepcopy
 from dahuffman import HuffmanCodec
 from torchvision.utils import save_image
 import pandas as pd
+from lion_pytorch import Lion
 
 def main():
     parser = argparse.ArgumentParser()
     # Dataset parameters
-    parser.add_argument('--data_path', type=str, default='data/bunny', help='data path for vid')
+    parser.add_argument('--data_path', type=str, default='/mnt/tmp/cifar-10-batches-py', help='data path for vid')
     parser.add_argument('--vid', type=str, default='bunny', help='video id',)
     parser.add_argument('--shuffle_data', action='store_true', help='randomly shuffle the frame idx')
     parser.add_argument('--data_split', type=str, default='1_1_1', 
@@ -61,7 +63,7 @@ def main():
     parser.add_argument('--not_resume', action='store_true', help='not resume from latest checkpoint')
     parser.add_argument('-e', '--epochs', type=int, default=300, help='Epoch number')
     parser.add_argument('--block_params', type=str, default='1_1', help='residual blocks and percentile to save')
-    parser.add_argument('--lr', type=float, default=0.0002, help='learning rate, default=0.0002')
+    parser.add_argument('--lr', type=float, default=0.01, help='learning rate, default=0.0002')
     parser.add_argument('--lr_type', type=str, default='cosine_0.1_1_0.1', help='learning rate type, default=cosine')
     parser.add_argument('--loss', type=str, default='L2', help='loss type, default=L2')
     parser.add_argument('--out_bias', default='tanh', type=str, help='using sigmoid/tanh/0.5 for output prediction')
@@ -83,13 +85,15 @@ def main():
 
     # logging, output directory, 
     parser.add_argument('--debug', action='store_true', help='defbug status, earlier for train/eval')  
-    parser.add_argument('-p', '--print-freq', default=50, type=int,)
+    parser.add_argument('-p', '--print-freq', default=100, type=int,)
     parser.add_argument('--weight', default='None', type=str, help='pretrained weights for ininitialization')
     parser.add_argument('--overwrite', action='store_true', help='overwrite the output dir if already exists')
     parser.add_argument('--outf', default='unify', help='folder to output images and model checkpoints')
     parser.add_argument('--suffix', default='', help="suffix str for outf")
     
     parser.add_argument('--ms_mamba', action='store_true', help='apply multiscale mamba')
+    parser.add_argument('--dataset_length', type=int, default=100)
+    parser.add_argument('--model', default='ssm', help="suffix str for outf")
 
 
     args = parser.parse_args()
@@ -154,22 +158,14 @@ def train(local_rank, args):
     best_metric_list = [torch.tensor(0) for _ in range(len(args.metric_names))]
 
     # setup dataloader    
-    full_dataset = VideoDataSet(args)
-    sampler = torch.utils.data.distributed.DistributedSampler(full_dataset) if args.distributed else None
-    full_dataloader = torch.utils.data.DataLoader(full_dataset, batch_size=args.batchSize, shuffle=False,
-            num_workers=args.workers, pin_memory=True, sampler=sampler, drop_last=False, worker_init_fn=worker_init_fn)
-    args.final_size = full_dataset.final_size
-    args.full_data_length = len(full_dataset)
-    split_num_list = [int(x) for x in args.data_split.split('_')]
-    train_ind_list, args.val_ind_list = data_split(list(range(args.full_data_length)), split_num_list, args.shuffle_data, 0)
+    dataset = Cifar(args)
+    # torch.manual_seed(42)
+    # num_tensors = 100
+    # tensor_shape = (3, 32, 32)
+    # dataset = [torch.rand(tensor_shape) for _ in range(num_tensors)]
+    # save_image(dataset[0], 'test.png')
     args.dump_vis = (args.dump_images or args.dump_videos)
-
-    #  Make sure the testing dataset is fixed for every run
-    train_dataset =  Subset(full_dataset, train_ind_list)
-    train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset) if args.distributed else None
-    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batchSize, shuffle=(train_sampler is None),
-         num_workers=args.workers, pin_memory=True, sampler=train_sampler, drop_last=True, worker_init_fn=worker_init_fn)
-
+    args.final_size=0
     # Compute the parameter number
     if 'pe' in args.embed or 'le' in args.embed:
         embed_param = 0
@@ -179,8 +175,8 @@ def train(local_rank, args):
         total_enc_strds = np.prod(args.enc_strds)
         embed_hw = args.final_size / total_enc_strds**2
         enc_dim1, embed_ratio = [float(x) for x in args.enc_dim.split('_')]
-        embed_dim = int(embed_ratio * args.modelsize * 1e6 / args.full_data_length / embed_hw) if embed_ratio < 1 else int(embed_ratio) 
-        embed_param = float(embed_dim) / total_enc_strds**2 * args.final_size * args.full_data_length
+        embed_dim = int(embed_ratio * args.modelsize * 1e6 / 1 / embed_hw) if embed_ratio < 1 else int(embed_ratio) 
+        embed_param = float(embed_dim) / total_enc_strds**2
         args.enc_dim = f'{int(enc_dim1)}_{embed_dim}' 
         fc_param = (np.prod(args.enc_strds) // np.prod(args.dec_strds))**2 * 9
 
@@ -193,10 +189,12 @@ def train(local_rank, args):
     c =  args.lower_width **2 * sum([s**2 * min(2*(fix_ch_stages + i) + dec_ks1, dec_ks2)  **2 for i, s in enumerate(args.dec_strds[fix_ch_stages:])])
     args.fc_dim = int(np.roots([a,b,c - decoder_size]).max())
 
-    # Building model
-    model = HNeRV(args)
 
     ##### get model params and flops #####
+    if args.model == "conv":
+        model = SimpleConv(args)
+    else: 
+        model = SSMConv(args)
     if local_rank in [0, None]:
         encoder_param = (sum([p.data.nelement() for p in model.encoder.parameters()]) / 1e6) 
         decoder_param = (sum([p.data.nelement() for p in model.decoder.parameters()]) / 1e6) 
@@ -213,34 +211,32 @@ def train(local_rank, args):
 
     # distrite model to gpu or parallel
     print("Use GPU: {} for training".format(local_rank))
-    if args.distributed and args.ngpus_per_node > 1:
-        model = torch.nn.parallel.DistributedDataParallel(model.to(local_rank), device_ids=[local_rank], output_device=local_rank, find_unused_parameters=True)
-    elif torch.cuda.is_available():
-        model = model.cuda()
-    elif args.ngpus_per_node > 1:
-        model = torch.nn.DataParallel(model)
+    # if args.distributed and args.ngpus_per_node > 1:
+    #     model = torch.nn.parallel.DistributedDataParallel(model.to(local_rank), device_ids=[local_rank], output_device=local_rank, find_unused_parameters=True)
+    # elif torch.cuda.is_available():
+    #     model = model.cuda()
+    # elif args.ngpus_per_node > 1:
+    #     model = torch.nn.DataParallel(model)
 
-    from lion_pytorch import Lion
-    optimizer = Lion(model.parameters(), weight_decay=0.)
     args.transform_func = TransformInput(args)
 
     # resume from args.weight
     checkpoint = None
-    loc = 'cuda:{}'.format(local_rank if local_rank is not None else 0)
-    if args.weight != 'None':
-        print("=> loading checkpoint '{}'".format(args.weight))
-        checkpoint_path = args.weight
-        checkpoint = torch.load(checkpoint_path, map_location='cpu')
-        orig_ckt = checkpoint['state_dict']
-        new_ckt={k.replace('blocks.0.',''):v for k,v in orig_ckt.items()} 
-        if 'module' in list(orig_ckt.keys())[0] and not hasattr(model, 'module'):
-            new_ckt={k.replace('module.',''):v for k,v in new_ckt.items()}
-            model.load_state_dict(new_ckt, strict=False)
-        elif 'module' not in list(orig_ckt.keys())[0] and hasattr(model, 'module'):
-            model.module.load_state_dict(new_ckt, strict=False)
-        else:
-            model.load_state_dict(new_ckt, strict=False)
-        print("=> loaded checkpoint '{}' (epoch {})".format(args.weight, checkpoint['epoch']))        
+    # loc = 'cuda:{}'.format(local_rank if local_rank is not None else 0)
+    # if args.weight != 'None':
+    #     print("=> loading checkpoint '{}'".format(args.weight))
+    #     checkpoint_path = args.weight
+    #     checkpoint = torch.load(checkpoint_path, map_location='cpu')
+    #     orig_ckt = checkpoint['state_dict']
+    #     new_ckt={k.replace('blocks.0.',''):v for k,v in orig_ckt.items()} 
+    #     if 'module' in list(orig_ckt.keys())[0] and not hasattr(model, 'module'):
+    #         new_ckt={k.replace('module.',''):v for k,v in new_ckt.items()}
+    #         model.load_state_dict(new_ckt, strict=False)
+    #     elif 'module' not in list(orig_ckt.keys())[0] and hasattr(model, 'module'):
+    #         model.module.load_state_dict(new_ckt, strict=False)
+    #     else:
+    #         model.load_state_dict(new_ckt, strict=False)
+    #     print("=> loaded checkpoint '{}' (epoch {})".format(args.weight, checkpoint['epoch']))        
 
     # resume from model_latest
     if not args.not_resume:
@@ -259,7 +255,7 @@ def train(local_rank, args):
 
     if args.eval_only:
         print_str = 'Evaluation ... \n {} Results for checkpoint: {}\n'.format(datetime.now().strftime('%Y_%m_%d_%H_%M_%S'), args.weight)
-        results_list, hw = evaluate(model, full_dataloader, local_rank, args, args.dump_vis, huffman_coding=True)
+        results_list, hw = evaluate(model, dataloader, local_rank, args, args.dump_vis, huffman_coding=True)
         print_str = f'PSNR for output {hw} for quant {args.quant_str}: '
         for i, (metric_name, best_metric_value, metric_value) in enumerate(zip(args.metric_names, best_metric_list, results_list)):
             best_metric_value = best_metric_value if best_metric_value > metric_value.max() else metric_value.max()
@@ -279,33 +275,36 @@ def train(local_rank, args):
     start = datetime.now()
 
     psnr_list = []
-    for epoch in range(args.start_epoch, args.epochs):
-        model.train()       
-        epoch_start_time = datetime.now()
+    for sid, sample in enumerate(dataset):
+        sample = sample.cuda()
+        if sid % 10 == 0:
+            print("currently working on ", sid, "-th sample.")
+        if args.model == "ssm":
+            model = SSMConv(args)
+        else:
+            model = SimpleConv(args)
+        model.cuda()
+        optimizer = Lion(model.parameters(), weight_decay=0.)
         pred_psnr_list = []
-        # iterate over dataloader
-        device = next(model.parameters()).device
-        for i, sample in enumerate(train_dataloader):
-            img_data, norm_idx, img_idx = data_to_gpu(sample['img'], device), data_to_gpu(sample['norm_idx'], device), data_to_gpu(sample['idx'], device)
-            if i > 10 and args.debug:
-                break
-
+        for epoch in range(args.start_epoch, args.epochs):
+            model.train()       
+            epoch_start_time = datetime.now()
+            # iterate over dataloader
+            device = next(model.parameters()).device
             # forward and backward
-            img_data, img_gt, inpaint_mask = args.transform_func(img_data)
-            cur_input = norm_idx if 'pe' in args.embed else img_data
-            cur_epoch = (epoch + float(i) / len(train_dataloader)) / args.epochs
+            cur_epoch = (epoch + 1 / 1) / args.epochs
             lr = adjust_lr(optimizer, cur_epoch, args)
-            img_out, _, _ = model(cur_input)
-            final_loss = loss_fn(img_out*inpaint_mask, img_gt*inpaint_mask, args.loss)      
+            img_out = model(sample)
+            final_loss = loss_fn(img_out, sample, args.loss)      
             optimizer.zero_grad()
             final_loss.backward()
             optimizer.step()
 
-            pred_psnr_list.append(psnr_fn_single(img_out.detach(), img_gt)) 
-            if i % args.print_freq == 0 or i == len(train_dataloader) - 1:
-                pred_psnr = torch.cat(pred_psnr_list).mean()
-                print_str = '[{}] Rank:{}, Epoch[{}/{}], Step [{}/{}], lr:{:.2e} pred_PSNR: {}'.format(
-                    datetime.now().strftime("%Y/%m/%d %H:%M:%S"), local_rank, epoch+1, args.epochs, i+1, len(train_dataloader), lr, 
+            pred_psnr_list.append(psnr_fn_single(img_out.detach()[None], sample[None])) 
+            pred_psnr = max(pred_psnr_list)
+            if epoch == args.epochs - 1:
+                print_str = '[{}] Rank:{}, Sample ID:{}, Epoch[{}/{}], lr:{:.2e} pred_PSNR: {}'.format(
+                    datetime.now().strftime("%Y/%m/%d %H:%M:%S"), local_rank, sid, epoch+1, args.epochs, lr, 
                     RoundTensor(pred_psnr, 2))
                 print(print_str, flush=True)
                 if local_rank in [0, None]:
@@ -325,42 +324,44 @@ def train(local_rank, args):
             print("Time/epoch: \tCurrent:{:.2f} \tAverage:{:.2f}".format( (epoch_end_time - epoch_start_time).total_seconds(), \
                     (epoch_end_time - start).total_seconds() / (epoch + 1 - args.start_epoch) ))
 
-        # evaluation
-        if (epoch + 1) % args.eval_freq == 0 or (args.epochs - epoch) in [1, 3, 5]:
-            results_list, hw = evaluate(model, full_dataloader, local_rank, args, 
-                args.dump_vis if epoch == args.epochs - 1 else False, 
-                True if epoch == args.epochs - 1 else False)            
-            if local_rank in [0, None]:
-                # ADD val_PSNR TO TENSORBOARD
-                print_str = f'Eval at epoch {epoch+1} for {hw}: '
-                for i, (metric_name, best_metric_value, metric_value) in enumerate(zip(args.metric_names, best_metric_list, results_list)):
-                    best_metric_value = best_metric_value if best_metric_value > metric_value.max() else metric_value.max()
-                    if 'psnr' in metric_name:
-                        writer.add_scalar(f'Val/{metric_name}_{hw}', metric_value.max(), epoch+1)
-                        writer.add_scalar(f'Val/best_{metric_name}_{hw}', best_metric_value, epoch+1)
-                        if metric_name == 'pred_seen_psnr':
-                            psnr_list.append(metric_value.max())
-                        print_str += f'{metric_name}: {RoundTensor(metric_value, 2)} | '
-                    best_metric_list[i] = best_metric_value
-                print(print_str, flush=True)
-                with open('{}/rank0.txt'.format(args.outf), 'a') as f:
-                    f.write(print_str + '\n')
+        # # evaluation
+        # if (epoch + 1) % args.eval_freq == 0 or (args.epochs - epoch) in [1, 3, 5]:
+        #     results_list, hw = evaluate(model, full_dataloader, local_rank, args, 
+        #         args.dump_vis if epoch == args.epochs - 1 else False, 
+        #         True if epoch == args.epochs - 1 else False)            
+        #     if local_rank in [0, None]:
+        #         # ADD val_PSNR TO TENSORBOARD
+        #         print_str = f'Eval at epoch {epoch+1} for {hw}: '
+        #         for i, (metric_name, best_metric_value, metric_value) in enumerate(zip(args.metric_names, best_metric_list, results_list)):
+        #             best_metric_value = best_metric_value if best_metric_value > metric_value.max() else metric_value.max()
+        #             if 'psnr' in metric_name:
+        #                 writer.add_scalar(f'Val/{metric_name}_{hw}', metric_value.max(), epoch+1)
+        #                 writer.add_scalar(f'Val/best_{metric_name}_{hw}', best_metric_value, epoch+1)
+        #                 if metric_name == 'pred_seen_psnr':
+        #                     psnr_list.append(metric_value.max())
+        #                 print_str += f'{metric_name}: {RoundTensor(metric_value, 2)} | '
+        #             best_metric_list[i] = best_metric_value
+        #         print(print_str, flush=True)
+        #         with open('{}/rank0.txt'.format(args.outf), 'a') as f:
+        #             f.write(print_str + '\n')
 
-        state_dict = model.state_dict()
-        save_checkpoint = {
-            'epoch': epoch+1,
-            'state_dict': state_dict,
-            'optimizer': optimizer.state_dict(),   
-        }    
-        if local_rank in [0, None]:
-            torch.save(save_checkpoint, '{}/model_latest.pth'.format(args.outf))
-            if (epoch + 1) % args.epochs == 0:
-                args.cur_epoch = epoch + 1
-                args.train_time = str(datetime.now() - start)
-                Dump2CSV(args, best_metric_list, results_list, psnr_list, f'epoch{epoch+1}.csv')
-                torch.save(save_checkpoint, f'{args.outf}/epoch{epoch+1}.pth')
-                if best_metric_list[0]==results_list[0]:
-                    torch.save(save_checkpoint, f'{args.outf}/model_best.pth')
+        # state_dict = model.state_dict()
+        # save_checkpoint = {
+        #     'epoch': epoch+1,
+        #     'state_dict': state_dict,
+        #     'optimizer': optimizer.state_dict(),   
+        # }    
+        # if local_rank in [0, None]:
+        #     torch.save(save_checkpoint, '{}_{}/model_latest.pth'.format(sid, args.outf))
+        #     if (epoch + 1) % args.epochs == 0:
+        #         args.cur_epoch = epoch + 1
+        #         args.train_time = str(datetime.now() - start)
+        #         Dump2CSV(args, best_metric_list, results_list, max(pred_psnr_list), f'epoch{epoch+1}.csv')
+        #         torch.save(save_checkpoint, f'{args.outf}/epoch{epoch+1}.pth')
+        #         if best_metric_list[0]==results_list[0]:
+        #             torch.save(save_checkpoint, f'{args.outf}/model_best.pth')
+        psnr_list.append(max(pred_psnr_list))
+    print("score: ", sum(psnr_list)/len(psnr_list))
 
     if local_rank in [0, None]:
         print(f"Training complete in: {str(datetime.now() - start)}")

@@ -18,104 +18,36 @@ from torch.nn.functional import interpolate
 import decord
 decord.bridge.set_bridge('torch')
 import glob
-from mambaconv import MambaConv2d, MambaGlobalConv2d, MambaUpConv2d
+from mambaconv import MambaConv2d, MambaGlobalConv2d, MambaUpConv2d, MambaConv2dVariant
 from einops import rearrange
-
+import pickle
 
 # Video dataset
-class VideoDataSet(Dataset):
+class Cifar(Dataset):
     def __init__(self, args):
-        if os.path.isfile(args.data_path):
-            self.video = decord.VideoReader(args.data_path)
-        else:
-            self.video = [os.path.join(args.data_path, x) for x in sorted(os.listdir(args.data_path))]
+        # self.video = [os.path.join(args.data_path, x) for x in sorted(os.listdir(args.data_path))]
+        data_path = os.path.join(args.data_path, "test_batch")
+        with open(data_path, "rb") as fo:
+            self.cifar_images = torch.from_numpy(pickle.load(fo, encoding = "bytes")[b"data"])
+        if args.dataset_length < 10000:
+            self.cifar_images = self.cifar_images[:args.dataset_length]
 
-        self.clip_len = args.clip_len
-        assert args.clip_len % 2 == 0 or args.clip_len == 1, "clip length should be divisible by 2"
         # Resize the input video and center crop
         self.crop_list, self.resize_list = args.crop_list, args.resize_list
 
-        if args.clip_len > 1: # take video clip as its input 
-            total_clips = 0
-            self.index_to_sample = []
-            l = args.clip_len
-            nframes = len(self.video)
-            num_clips = nframes // l + int(nframes%l != 0)
-            amount_to_pad = l-nframes%l
-            front_pad = amount_to_pad // 2
-            end_pad = amount_to_pad - front_pad
-            # let's take the center frame of the clip
-            self.index_to_sample.extend([(i*l+(l//2)-front_pad, front_pad, end_pad, nframes) for i in range(num_clips)])
-            total_clips += num_clips
-            print("total clips: {}".format(total_clips))
-            self.num_clips = num_clips
-
-        first_frame = self.img_transform(self.img_load(0))
+        first_frame = self.img_load(0)
         self.h, self.w = first_frame.size(-2), first_frame.size(-1)
         self.final_size = self.h * self.w
 
     def img_load(self, idx):
-        if isinstance(self.video, list):
-            img = read_image(self.video[idx])
-        else:
-            img = self.video[idx].permute(-1,0,1)
+        img = self.cifar_images[idx].reshape(3, 32, 32) # c h w
         return img / 255.
 
-    def vid_load(self, idx):
-        cf_id, _, _, nframes = self.index_to_sample[idx]
-        imgs = []
-        pad_front, pad_end = 0, 0
-        for i in range(cf_id - (self.clip_len // 2), cf_id + (self.clip_len // 2)):
-            if i in range(nframes):
-                if isinstance(self.video, list):
-                    imgs.append(read_image(self.video[i]))
-                else:
-                    imgs.append(self.video[i].permute(-1,0,1))
-            elif i < 0:
-                pad_front += 1
-            else:
-                pad_end += 1
-        buffer = torch.stack(imgs, dim=0)
-        if pad_front > 0 or pad_end > 0:
-            buffer = F.pad(buffer, (0, 0, 0, 0, 0, 0, pad_front, pad_end))
-        assert len(buffer) == self.clip_len
-        return buffer / 255.
-
-    def img_transform(self, img):
-        if self.crop_list != '-1': 
-            crop_h, crop_w = [int(x) for x in self.crop_list.split('_')[:2]]
-            if 'last' not in self.crop_list:
-                img = center_crop(img, (crop_h, crop_w))
-        if self.resize_list != '-1':
-            if '_' in self.resize_list:
-                resize_h, resize_w = [int(x) for x in self.resize_list.split('_')]
-                img = interpolate(img, (resize_h, resize_w), 'bicubic')
-            else:
-                resize_hw = int(self.resize_list)
-                img = resize(img, resize_hw,  'bicubic')
-        if 'last' in self.crop_list:
-            img = center_crop(img, (crop_h, crop_w))
-        return img
-
     def __len__(self):
-        if self.clip_len > 1:
-            return len(self.index_to_sample)
-        else:
-            return len(self.video)
+        return len(self.cifar_images)
 
     def __getitem__(self, idx):
-        if self.clip_len > 1:
-            try:
-                tensor_image = torch.stack([self.img_transform(self.vid_load(idx)[j]) for j in range(self.clip_len)], dim=1)
-            except:
-                print("self.vid_load(idx) length: ", len(self.vid_load(idx)))
-                raise AssertionError
-            norm_idx = float(idx) / self.num_clips
-        else:
-            tensor_image = self.img_transform(self.img_load(idx))
-            norm_idx = float(idx) / len(self.video)
-        sample = {'img': tensor_image, 'idx': idx, 'norm_idx': norm_idx}
-        
+        sample = self.img_load(idx)
         return sample
 
 
@@ -152,90 +84,71 @@ def OutImg(x, out_bias='tanh'):
         return x + float(out_bias)
 
 
-class HNeRV(nn.Module):
+class SimpleConv(nn.Module):
     def __init__(self, args):
         super().__init__()
-        self.embed = args.embed
-        ks_enc, ks_dec1, ks_dec2 = [int(x) for x in args.ks.split('_')]
-        enc_blks, dec_blks = [int(x) for x in args.num_blks.split('_')]
-
-        # BUILD Encoder LAYERS
-        if len(args.enc_strds):         #HNeRV
-            enc_dim1, enc_dim2 = [int(x) for x in args.enc_dim.split('_')]
-            c_in_list, c_out_list = [enc_dim1] * len(args.enc_strds), [enc_dim1] * len(args.enc_strds)
-            c_out_list[-1] = enc_dim2
-            if args.conv_type[0] == 'convnext':
-                self.encoder = MambaConvNeXt(stage_blocks=enc_blks, strds=args.enc_strds, dims=c_out_list,
-                    drop_path_rate=0, multiscale_mamba=args.ms_mamba)
-            else:
-                c_in_list[0] = 3
-                encoder_layers = []
-                for c_in, c_out, strd in zip(c_in_list, c_out_list, args.enc_strds):
-                    encoder_layers.append(NeRVBlock(dec_block=False, conv_type=args.conv_type[0], ngf=c_in,
-                     new_ngf=c_out, ks=ks_enc, strd=strd, bias=True, norm=args.norm, act=args.act))
-                self.encoder = nn.Sequential(*encoder_layers)
-            hnerv_hw = np.prod(args.enc_strds) // np.prod(args.dec_strds)
-            self.fc_h, self.fc_w = hnerv_hw, hnerv_hw
-            ch_in = enc_dim2
-        else:
-            ch_in = 2 * int(args.embed.split('_')[-1])
-            self.pe_embed = PositionEncoding(args.embed)  
-            self.encoder = nn.Identity()
-            self.fc_h, self.fc_w = [int(x) for x in args.fc_hw.split('_')]
-
-        # BUILD Decoder LAYERS  
-        decoder_layers = []        
-        ngf = args.fc_dim
-        out_f = int(ngf * self.fc_h * self.fc_w)
-        decoder_layer1 = NeRVBlock(dec_block=False, conv_type='conv', ngf=ch_in, new_ngf=out_f, ks=0, strd=1, 
-            bias=True, norm=args.norm, act=args.act)
-        decoder_layers.append(decoder_layer1)
-        output_dim = [(2,4), (10,20), (40,80), (160, 320), (320, 640), (640, 1280)]
-        reverse_strds = args.dec_strds[::-1]
-        for i, strd in enumerate(args.dec_strds):                         
-            reduction = sqrt(strd) if args.reduce==-1 else args.reduce
-            new_ngf = int(max(round(ngf / reduction), args.lower_width))
-            for j in range(dec_blks):
-                # if i < 1:
-                #     cur_blk = NeRVBlock(dec_block=True, conv_type="mamba", ngf=ngf, new_ngf=new_ngf, 
-                #                         ks=min(ks_dec1+2*i, ks_dec2), strd=1 if j else strd, bias=True, norm=args.norm, act=args.act)
-                # else:
-                cur_blk = NeRVBlock(dec_block=True, conv_type=args.conv_type[1], ngf=ngf, new_ngf=new_ngf, 
-                        ks=min(ks_dec1+2*i, ks_dec2), strd=1 if j else strd, bias=True, norm=args.norm, act=args.act)
-                decoder_layers.append(cur_blk)
-                ngf = new_ngf
-        
-        self.decoder = nn.ModuleList(decoder_layers)
-        self.head_layer = nn.Conv2d(ngf, 3, 3, 1, 1) 
+        self.encoder = nn.Conv2d(3, 12, 4, 4) # output: 12,8,8 (#param: 768)
+        # self.act = nn.GELU()
+        # self.norm = LayerNorm(8, eps=1e-6, data_format="channels_first")
+        self.decoder = nn.Sequential(
+            nn.Conv2d(12, 48, 1, 1),
+            nn.PixelShuffle(4)
+        )
         self.out_bias = args.out_bias
 
-    def forward(self, input, input_embed=None, encode_only=False):
-        if input_embed != None:
-            img_embed = input_embed
-        else:
-            if 'pe' in self.embed:
-                input = self.pe_embed(input[:,None]).float()
-            img_embed = self.encoder(input)
+    def forward(self, input):
+        img_embed = self.encoder(input)
+        output = self.decoder(img_embed)
+        img_out = OutImg(output, self.out_bias)
+        return  img_out
 
-        # import pdb; pdb.set_trace; from IPython import embed; embed()     
-        embed_list = [img_embed]
-        dec_start = time.time()
-        output = self.decoder[0](img_embed)
-        n, c, h, w = output.shape
-        output = output.view(n, -1, self.fc_h, self.fc_w, h, w).permute(0,1,4,2,5,3).reshape(n,-1,self.fc_h * h, self.fc_w * w)
-        embed_list.append(output)
-        for layer in self.decoder[1:]:
-            output = layer(output) 
-            embed_list.append(output)
-        # print([a.shape for a in embed_list])
+class SSMConvVariant(nn.Module):
+    def __init__(self, args):
+        super().__init__()
+        self.encoder = MambaConv2dVariant(3, 8, 4, 4) # output: 12,8,8 (#param: 768)
+        # self.act = nn.SiLU()
+        # self.norm = LayerNorm(8, eps=1e-6, data_format="channels_first")
+        self.decoder = nn.Sequential(
+            nn.Conv2d(12, 3, 1, 1),
+        )
+        self.out_bias = args.out_bias
 
-        img_out = OutImg(self.head_layer(output), self.out_bias)
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
-        dec_time = time.time() - dec_start
+    def forward(self, input):
+        H, W = input.shape[-2:]
+        img_embed = self.encoder(input[None])
+        # expand: b c h w -> b c h' w' using the matrix C
+        b, c, h, w = img_embed.shape
+        img_embed = rearrange(img_embed, 'b c h w -> (b h w) 1 c')
+        decode_mat = self.encoder.mamba_kernels[0].mixer.C
+        output = torch.einsum("blc,blL->bLc", img_embed, decode_mat)
+        output = self.encoder.mamba_kernels[0].mixer.out_proj(output)
+        output = self.encoder.fused_add_norm(output, None)
+        output = output.permute(0,2,1)
+        # output = rearrange(output, "(b h w) c (k1 k2) -> b (c k1 k2) (h w)", b=b, c=c, h=h, w=w, k1=4, k2=4)
+        # output = F.fold(output, (H, W), (4, 4), stride=(4, 4))
+        output = rearrange(output, "(b h w) c (k1 k2) -> b c (h k1) (w k2)", b=b, c=c, h=h, w=w, k1=4, k2=4)
+        output = self.decoder(output)
+        img_out = OutImg(output, self.out_bias)[0]
+        return  img_out
 
-        return  img_out, embed_list, dec_time
+class SSMConv(nn.Module):
+    def __init__(self, args):
+        super().__init__()
+        self.encoder = MambaConv2d(3, 12, 4, 4) # output: 12,8,8 (#param: 768)
+        # self.act = nn.SiLU()
+        # self.norm = LayerNorm(12, eps=1e-6, data_format="channels_first")
+        self.decoder = nn.Sequential(
+            nn.Conv2d(12, 48, 1, 1),
+            nn.PixelShuffle(4)
+        )
+        self.out_bias = args.out_bias
 
+    def forward(self, input):
+        H, W = input.shape[-2:]
+        img_embed = self.encoder(input[None])
+        output = self.decoder(img_embed)
+        img_out = OutImg(output, self.out_bias)[0]
+        return  img_out
 
 class HNeRVDecoder(nn.Module):
     def __init__(self, model):

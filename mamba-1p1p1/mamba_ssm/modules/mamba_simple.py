@@ -37,7 +37,7 @@ class Mamba(nn.Module):
         d_model,
         d_state=16,
         d_conv=4,
-        expand=2,
+        expand=1,
         dt_rank="auto",
         dt_min=0.001,
         dt_max=0.1,
@@ -173,7 +173,9 @@ class Mamba(nn.Module):
         """
         batch, seqlen, dim = hidden_states.shape
 
-        conv_state, ssm_state = None, None
+        conv_state = None
+        # ssm_state = torch.zeros((hidden_states.size(0), hidden_states.size(2)*self.expand, self.d_state), device=hidden_states.device)
+        ssm_state = None
         if inference_params is not None:
             conv_state, ssm_state = self._get_states_from_cache(inference_params, batch)
             if inference_params.seqlen_offset > 0:
@@ -286,6 +288,8 @@ class Mamba(nn.Module):
             dt = rearrange(dt, "d (b l) -> b d l", l=seqlen)
             B = rearrange(B, "(b l) dstate -> b dstate l", l=seqlen).contiguous()
             C = rearrange(C, "(b l) dstate -> b dstate l", l=seqlen).contiguous()
+            # self.C = C
+            # C = repeat(torch.eye(self.d_state, device=B.device), 'dstate dstate2 -> b dstate dstate2', b=B.size(0))
             assert self.activation in ["silu", "swish"]
             y = selective_scan_fn(
                 x,
@@ -306,6 +310,7 @@ class Mamba(nn.Module):
             out = self.out_proj(y)
         if self.init_layer_scale is not None:
                 out = out * self.gamma    
+        # return rearrange(ssm_state, "b d l -> b l d")
         return out
 
     def step(self, hidden_states, conv_state, ssm_state):

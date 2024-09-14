@@ -24,6 +24,25 @@ try:
 except ImportError:
     RMSNorm, layer_norm_fn, rms_norm_fn = None, None, None
 
+def realign(A):
+    batch, channel, height, width = A.shape
+    
+    # Create an index tensor for zigzag pattern
+    zigzag_indices = torch.arange(width)
+    zigzag_indices = zigzag_indices.unsqueeze(0).expand(height, -1)
+    
+    # Reverse the odd rows to get the zigzag pattern
+    zigzag_indices_ = zigzag_indices.clone()
+    zigzag_indices_[1::2] = zigzag_indices[1::2].flip(1)
+    
+    # Use advanced indexing to get the zigzag elements for each (batch, channel) pair
+    A_zigzag = A[..., torch.arange(height).unsqueeze(-1), zigzag_indices_]
+    
+    # Reshape the height and width into one dimension (flatten)
+    A_zigzag_flat = A_zigzag.reshape(batch, channel, -1)
+    
+    return A_zigzag_flat
+
 class MambaConv2d(_ConvNd):
     def __init__(
         self,
@@ -53,7 +72,7 @@ class MambaConv2d(_ConvNd):
         self.dim_preserve = dim_preserve
         # assert out_channels % in_channels == 0, \
         #     f"output channel size {out_channels} must be divisible by input channel size {in_channels}"
-        d_state = kernel_size**2 // 2
+        d_state = kernel_size**2 // 2 + 4
         num_kernels = 1
         # self.mamba_kernels = nn.ModuleList([
         #     partial(Mamba, d_state=d_state, layer_idx=layer_idx, **factory_kwargs)(in_channels)
@@ -62,15 +81,21 @@ class MambaConv2d(_ConvNd):
         # self.pos_embed = build_position_encoding(N_steps=in_channels)
         # self.pos_linear = nn.Conv2d(in_channels*2, in_channels, 1, 1)
         # self.agg_token_pe = nn.Parameter(torch.zeros(1, 1, in_channels))  
+    
+        self.flip = True
+        if self.flip:
+            mamba_channels = 4*in_channels
+        else:
+            mamba_channels = in_channels
+
         if dim_preserve:
             self.pos_embed = nn.Parameter(torch.zeros(1, kernel_size**2, in_channels))
             rms_norm = False
         else:
             self.agg_token = nn.Parameter(torch.zeros(1, 1, in_channels))
-            self.pos_embed = nn.Parameter(torch.zeros(1, kernel_size**2, 4*in_channels))
-        trunc_normal_(self.pos_embed, std=.02)      
-        
-        mamba_channels = 4*in_channels
+            self.pos_embed = nn.Parameter(torch.zeros(1, kernel_size**2, mamba_channels))
+        trunc_normal_(self.pos_embed, std=.02)  
+            
         self.mamba_kernels = nn.ModuleList([
             create_block(
                 d_model=mamba_channels,
@@ -89,7 +114,7 @@ class MambaConv2d(_ConvNd):
         self.linear = nn.Conv2d(mamba_channels, out_channels, 1, 1)
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
         if not dim_preserve:
-            self.conv = nn.Conv2d(4*in_channels, out_channels, 1, 1)
+            self.conv = nn.Conv2d(mamba_channels, out_channels, 1, 1)
             # self.token_position = "middle"
             self.token_position = "end"
             # self.token_position = "first"
@@ -124,11 +149,15 @@ class MambaConv2d(_ConvNd):
         # agg_token_pe = self.agg_token_pe.expand(B*H2*W2, -1, -1)
         agg_token = self.agg_token.expand(B*H2*W2, -1, -1)
         # input = rearrange(input, "B C H2 W2 K1 K2 -> (B H2 W2) (K1 K2) C")
-        input = rearrange(input, "B C H2 W2 K1 K2 -> (B H2 W2) K1 K2 C")
+        input = rearrange(input, "B C H2 W2 K1 K2 -> (B H2 W2) C K1 K2")
         ssm_output = []
-        for i, dir in enumerate([(),(1),(2),(1,2)]):
-            dir_input = input.flip(dir)
-            ssm_output.append(dir_input)
+        if self.flip:
+            for i, dir in enumerate([(),(2),(3),(2,3)]):
+                # dir_input = rearrange(realign(input.flip(dir)), 'B C (K1 K2) -> B K1 K2 C', K1=K1, K2=K2)
+                dir_input = rearrange(input.flip(dir), 'B C K1 K2 -> B K1 K2 C')
+                ssm_output.append(dir_input)
+        else:
+            ssm_output.append(input)
         input = torch.cat(ssm_output, dim=-1).flatten(1,2)
         
         if self.token_position == "middle":
@@ -153,8 +182,8 @@ class MambaConv2d(_ConvNd):
             pos = pos_embedding
             input = input + pos
             output = torch.cat([rearrange(self.fused_add_norm(*kernel(input))[:, 0, :], "(B H2 W2) C -> B C H2 W2", H2=H2, W2=W2)
-                    for kernel in self.mamba_kernels], dim=1)               
-        output = self.conv(output)
+                    for kernel in self.mamba_kernels], dim=1)
+        # output = self.conv(output)
         # output = self.linear(output)
         return output
     
@@ -185,6 +214,180 @@ class MambaConv2d(_ConvNd):
                 for kernel in self.mamba_kernels], dim=1)
         output = F.fold(output, (H, W), (K1, K2), stride=(K1, K2))
         return output    
+    
+class MambaConv2dVariant(_ConvNd):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: _size_2_t,
+        stride: _size_2_t = 1,
+        padding: Union[str, _size_2_t] = 0,
+        dilation: _size_2_t = 1,
+        groups: int = 1,
+        bias: bool = True,
+        padding_mode: str = 'zeros',  # TODO: refine this type
+        rms_norm: bool = True,
+        dim_preserve: bool = False,
+        drop_path: float = 0.,
+        device=None,
+        dtype=None
+    ) -> None:
+        factory_kwargs = {'device': device, 'dtype': dtype}
+        kernel_size_ = _pair(kernel_size)
+        stride_ = _pair(stride)
+        padding_ = padding if isinstance(padding, str) else _pair(padding)
+        dilation_ = _pair(dilation)
+        super().__init__(
+            in_channels, out_channels, kernel_size_, stride_, padding_, dilation_,
+            False, _pair(0), groups, bias, padding_mode, **factory_kwargs)
+        self.dim_preserve = dim_preserve
+        # assert out_channels % in_channels == 0, \
+        #     f"output channel size {out_channels} must be divisible by input channel size {in_channels}"
+        d_state = 1
+        num_kernels = 1
+        # self.mamba_kernels = nn.ModuleList([
+        #     partial(Mamba, d_state=d_state, layer_idx=layer_idx, **factory_kwargs)(in_channels)
+        #     for layer_idx in range(num_kernels)
+        # ])
+        # self.pos_embed = build_position_encoding(N_steps=in_channels)
+        # self.pos_linear = nn.Conv2d(in_channels*2, in_channels, 1, 1)
+        # self.agg_token_pe = nn.Parameter(torch.zeros(1, 1, in_channels))  
+    
+        self.flip = True
+        if self.flip:
+            mamba_channels = 4*in_channels
+        else:
+            mamba_channels = in_channels
+
+        self.agg_token = nn.Parameter(torch.zeros(1, 1, in_channels))
+        self.pos_embed = nn.Parameter(torch.zeros(1, kernel_size**2, mamba_channels))
+        trunc_normal_(self.pos_embed, std=.02)  
+            
+        self.mamba_kernels = nn.ModuleList([
+            create_block(
+                d_model=mamba_channels,
+                d_state=d_state,
+                layer_idx = i,
+                rms_norm = rms_norm,
+                bimamba_type = "v2",
+                if_devide_out=True,
+                **factory_kwargs,
+            )
+            for i in range(num_kernels)
+        ])
+        self.norm_f = (nn.LayerNorm if not rms_norm else RMSNorm)(
+            mamba_channels, eps=1e-5, **factory_kwargs
+        )
+        self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
+        if not dim_preserve:
+            self.conv = nn.Conv2d(mamba_channels, out_channels, 1, 1)
+            # self.token_position = "middle"
+            self.token_position = "end"
+            # self.token_position = "first"
+
+    def fused_add_norm(self, hidden_states, residual):
+        if residual is None:
+            residual = hidden_states
+        else:
+            residual = residual + self.drop_path(hidden_states)
+        return self.norm_f(residual.to(dtype=self.norm_f.weight.dtype))   
+
+    def forward(self, input: Tensor) -> Tensor:
+        '''
+        input: torch.Tensor of size [B, C, H, W]
+        '''
+        if self.padding_mode != 'zeros':
+            input = F.pad(input, self._reversed_padding_repeated_twice, mode=self.padding_mode)
+        else:
+            input = F.pad(input, self.padding*2)
+
+        if self.dim_preserve:
+            return self.dim_preserving_forward(input)
+        
+        # patchify input sequences
+        H, W = input.shape[-2:]
+        input = input.unfold(dimension=2, size=self.kernel_size[0], step=self.stride[0])
+        input = input.unfold(dimension=3, size=self.kernel_size[1], step=self.stride[1])
+        B, C, H2, W2, K1, K2 = input.shape
+        # pos_embedding = self.pos_linear(self.pos_embed(input))
+        pos_embedding = self.pos_embed.expand(B*H2*W2, -1, -1)
+        # pos_embedding = repeat(pos_embedding, "B C K1 K2 -> B C H2 W2 K1 K2", H2=H2, W2=W2)
+        # pos_embedding = rearrange(pos_embedding, "B C H2 W2 K1 K2 -> (B H2 W2) (K1 K2) C")
+        # agg_token_pe = self.agg_token_pe.expand(B*H2*W2, -1, -1)
+        agg_token = self.agg_token.expand(B*H2*W2, -1, -1)
+        # input = rearrange(input, "B C H2 W2 K1 K2 -> (B H2 W2) (K1 K2) C")
+        input = rearrange(input, "B C H2 W2 K1 K2 -> (B H2 W2) C K1 K2")
+        ssm_output = []
+        if self.flip:
+            for i, dir in enumerate([(),(2),(3),(2,3)]):
+                # dir_input = rearrange(realign(input.flip(dir)), 'B C (K1 K2) -> B K1 K2 C', K1=K1, K2=K2)
+                dir_input = rearrange(input.flip(dir), 'B C K1 K2 -> B K1 K2 C')
+                ssm_output.append(dir_input)
+        else:
+            ssm_output.append(rearrange(input, 'B C K1 K2 -> B K1 K2 C'))
+
+        input = torch.cat(ssm_output, dim=-1).flatten(1,2)
+        
+        if self.token_position == "middle":
+            agg_token_position = K1*K2 // 2
+            input = torch.cat((input[:, :agg_token_position, :], agg_token, input[:, agg_token_position:, :]), dim=1)
+            # pos = torch.cat((pos_embedding[:, :agg_token_position, :], agg_token_pe, pos_embedding[:, agg_token_position:, :]), dim=1)
+            pos = pos_embedding
+            input = input + pos
+            output = torch.cat([rearrange(self.fused_add_norm(*kernel(input))[:, agg_token_position, :], "(B H2 W2) C -> B C H2 W2", H2=H2, W2=W2)
+                    for kernel in self.mamba_kernels], dim=1)
+        elif self.token_position == "end":
+            # input = torch.cat((input, agg_token), dim=1)
+            # pos = torch.cat((pos_embedding, agg_token_pe), dim=1)
+            pos = pos_embedding
+            # input = torch.cat((input, pos), dim=-1)
+            input = input
+            # output = torch.cat([rearrange(self.fused_add_norm(*kernel(input)), "(B H2 W2) (K1 K2) C -> B (C K1 K2) (H2 W2)", H2=H2, W2=W2, K1=K1, K2=K2)
+            #         for kernel in self.mamba_kernels], dim=1)     
+            output = torch.cat([rearrange(kernel(input)[0], "(B H2 W2) 1 C -> B C H2 W2", H2=H2, W2=W2)
+                    for kernel in self.mamba_kernels], dim=1)     
+        elif self.token_position == "first":
+            # input = torch.cat((agg_token, input), dim=1)
+            # pos = torch.cat((agg_token_pe, pos_embedding), dim=1)
+            pos = pos_embedding
+            input = input + pos
+            output = torch.cat([rearrange(self.fused_add_norm(*kernel(input))[:, 0, :], "(B H2 W2) C -> B C H2 W2", H2=H2, W2=W2)
+                    for kernel in self.mamba_kernels], dim=1)       
+        # output = F.fold(output, (H, W), (K1, K2), stride=(K1, K2))
+        # output = self.conv(output)
+        # output = self.linear(output)
+        return output
+    
+    def dim_preserving_forward(self, input: Tensor) -> Tensor:
+        '''
+        input: torch.Tensor of size [B, C, H, W]
+        '''
+        if self.padding_mode != 'zeros':
+            input = F.pad(input, self._reversed_padding_repeated_twice, mode=self.padding_mode)
+        else:
+            input = F.pad(input, self.padding*2)
+
+        # patchify input sequences
+        H, W = input.shape[-2:]
+        input = input.unfold(dimension=2, size=self.kernel_size[0], step=self.stride[0])
+        input = input.unfold(dimension=3, size=self.kernel_size[1], step=self.stride[1])
+        B, C, H2, W2, K1, K2 = input.shape
+        # pos_embedding = self.pos_linear(self.pos_embed(input))
+        pos_embedding = self.pos_embed.expand(B*H2*W2, -1, -1)
+        # pos_embedding = repeat(pos_embedding, "B C K1 K2 -> B C H2 W2 K1 K2", H2=H2, W2=W2)
+        # pos_embedding = rearrange(pos_embedding, "B C H2 W2 K1 K2 -> (B H2 W2) (K1 K2) C")
+        input = rearrange(input, "B C H2 W2 K1 K2 -> (B H2 W2) (K1 K2) C")
+        
+        # pos = torch.cat((pos_embedding[:, :agg_token_position, :], agg_token_pe, pos_embedding[:, agg_token_position:, :]), dim=1)
+        pos = pos_embedding
+        input = input + pos
+        output = torch.cat([rearrange(self.fused_add_norm(*kernel(input)), "(B H2 W2) (K1 K2) C -> B (C K1 K2) (H2 W2)", H2=H2, W2=W2, K1=K1, K2=K2)
+                for kernel in self.mamba_kernels], dim=1)
+        output = F.fold(output, (H, W), (K1, K2), stride=(K1, K2))
+        return output    
+
+
 
 class MambaGlobalConv2d(_ConvNd):
     def __init__(
