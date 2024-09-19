@@ -18,7 +18,7 @@ from torch.nn.functional import interpolate
 import decord
 decord.bridge.set_bridge('torch')
 import glob
-from mambaconv import MambaConv2d, MambaGlobalConv2d, MambaUpConv2d, MambaConv2dVariant
+from mambaconv import MambaConv2d, MambaGlobalConv2d, MambaUpConv2d, MambaConv2dVariant, S4NDConv2d
 from einops import rearrange
 import pickle
 
@@ -87,11 +87,11 @@ def OutImg(x, out_bias='tanh'):
 class SimpleConv(nn.Module):
     def __init__(self, args):
         super().__init__()
-        self.encoder = nn.Conv2d(3, 12, 4, 4) # output: 12,8,8 (#param: 768)
+        self.encoder = nn.Conv2d(3, 8, 4, 4) # output: 8,8,8 (#param: 512)
         # self.act = nn.GELU()
         # self.norm = LayerNorm(8, eps=1e-6, data_format="channels_first")
         self.decoder = nn.Sequential(
-            nn.Conv2d(12, 48, 1, 1),
+            nn.Conv2d(8, 48, 1, 1),
             nn.PixelShuffle(4)
         )
         self.out_bias = args.out_bias
@@ -135,8 +135,6 @@ class SSMConv(nn.Module):
     def __init__(self, args):
         super().__init__()
         self.encoder = MambaConv2d(3, 12, 4, 4) # output: 12,8,8 (#param: 768)
-        # self.act = nn.SiLU()
-        # self.norm = LayerNorm(12, eps=1e-6, data_format="channels_first")
         self.decoder = nn.Sequential(
             nn.Conv2d(12, 48, 1, 1),
             nn.PixelShuffle(4)
@@ -149,6 +147,50 @@ class SSMConv(nn.Module):
         output = self.decoder(img_embed)
         img_out = OutImg(output, self.out_bias)[0]
         return  img_out
+
+class S4NDConv(nn.Module):
+    def __init__(self, args):
+        super().__init__()
+        self.encoder = nn.Sequential(
+            nn.Conv2d(3, 8, 4, 4),
+            S4NDConv2d(8, 64, 8, 8) # output: 8,8,8 (#param: 512)
+        )
+        # self.act = nn.SiLU()
+        # self.norm = LayerNorm(12, eps=1e-6, data_format="channels_first")
+        self.decoder = nn.Sequential(
+            nn.Conv2d(8, 48, 1, 1),
+            nn.PixelShuffle(4)
+        )
+        self.out_bias = args.out_bias
+
+    def forward(self, input):
+        H, W = input.shape[-2:]
+        img_embed = self.encoder(input[None])
+        output = self.decoder(img_embed)
+        img_out = OutImg(output, self.out_bias)[0]
+        return  img_out
+
+# class S4NDConv(nn.Module):
+#     def __init__(self, args):
+#         super().__init__()
+#         self.encoder = nn.Sequential(
+#             S4NDConv2d(3, 24, 32, 32) # output: 8,8,8 (#param: 512)
+#         )
+#         # self.act = nn.SiLU()
+#         # self.norm = LayerNorm(12, eps=1e-6, data_format="channels_first")
+#         self.decoder = nn.Sequential(
+#             nn.Conv2d(8, 48, 1, 1),
+#             nn.PixelShuffle(4)
+#         )
+#         self.out_bias = args.out_bias
+
+#     def forward(self, input):
+#         H, W = input.shape[-2:]
+#         img_embed = self.encoder(input[None])
+#         # output = self.decoder(img_embed)
+#         # img_out = OutImg(output, self.out_bias)[0]
+#         img_out = OutImg(img_embed, self.out_bias)[0]
+#         return  img_out
 
 class HNeRVDecoder(nn.Module):
     def __init__(self, model):

@@ -1,1 +1,1 @@
-python3 train_nerv_all.py  --outf timewise -b 2
+python3 train_nerv_all.py -b 1 --outf debug2 --model conv --lr 0.01 --dataset_length=100

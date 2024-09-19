@@ -43,6 +43,62 @@ def realign(A):
     
     return A_zigzag_flat
 
+
+import math
+class S4DKernel(nn.Module):
+    """Generate convolution kernel from diagonal SSM parameters."""
+
+    def __init__(self, d_model, N=64, dt_min=0.001, dt_max=0.1, lr=None, variant=True):
+        super().__init__()
+        # Generate dt
+        H = d_model
+        log_dt = torch.rand(H) * (
+            math.log(dt_max) - math.log(dt_min)
+        ) + math.log(dt_min)
+
+        C = torch.randn(H, N // 2, dtype=torch.cfloat)
+        self.C = nn.Parameter(torch.view_as_real(C))
+        self.register("log_dt", log_dt, lr)
+
+        log_A_real = torch.log(0.5 * torch.ones(H, N//2))
+        A_imag = math.pi * repeat(torch.arange(N//2), 'n -> h n', h=H)
+        self.register("log_A_real", log_A_real, lr)
+        self.register("A_imag", A_imag, lr)
+        self.variant = variant
+
+    def forward(self, L):
+        """
+        returns: (..., c, L) where c is number of channels (default 1)
+        """
+
+        # Materialize parameters
+        dt = torch.exp(self.log_dt) # (H)
+        C = torch.view_as_complex(self.C) # (H N)
+        A = -torch.exp(self.log_A_real) + 1j * self.A_imag # (H N)
+
+        # Vandermonde multiplication
+        dtA = A * dt.unsqueeze(-1)  # (H N)
+        K = dtA.unsqueeze(-1) * torch.arange(L, device=A.device) # (H N L)
+        C = C * (torch.exp(dtA)-1.) / A
+        if self.variant:
+            self.decode_param = 2 * torch.einsum('hn, hnl -> nl', C, torch.exp(K)).real
+            return 2*torch.exp(K).real
+        else:
+            K = 2 * torch.einsum('hn, hnl -> hl', C, torch.exp(K)).real
+            return K
+
+    def register(self, name, tensor, lr=None):
+        """Register a tensor with a configurable learning rate and 0 weight decay"""
+
+        if lr == 0.0:
+            self.register_buffer(name, tensor)
+        else:
+            self.register_parameter(name, nn.Parameter(tensor))
+
+            optim = {"weight_decay": 0.0}
+            if lr is not None: optim["lr"] = lr
+            setattr(getattr(self, name), "_optim", optim)
+
 class MambaConv2d(_ConvNd):
     def __init__(
         self,
@@ -153,8 +209,8 @@ class MambaConv2d(_ConvNd):
         ssm_output = []
         if self.flip:
             for i, dir in enumerate([(),(2),(3),(2,3)]):
-                # dir_input = rearrange(realign(input.flip(dir)), 'B C (K1 K2) -> B K1 K2 C', K1=K1, K2=K2)
-                dir_input = rearrange(input.flip(dir), 'B C K1 K2 -> B K1 K2 C')
+                dir_input = rearrange(realign(input.flip(dir)), 'B C (K1 K2) -> B K1 K2 C', K1=K1, K2=K2)
+                # dir_input = rearrange(input.flip(dir), 'B C K1 K2 -> B K1 K2 C')
                 ssm_output.append(dir_input)
         else:
             ssm_output.append(input)
@@ -388,6 +444,162 @@ class MambaConv2dVariant(_ConvNd):
         return output    
 
 
+from src.models.sequence.modules.s4nd import S4ND
+
+class S4NDConv2d(_ConvNd):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: _size_2_t,
+        stride: _size_2_t = 1,
+        padding: Union[str, _size_2_t] = 0,
+        dilation: _size_2_t = 1,
+        groups: int = 1,
+        bias: bool = True,
+        padding_mode: str = 'zeros',  # TODO: refine this type
+        rms_norm: bool = True,
+        dim_change = False,
+        dim_preserve: bool = False,
+        add_layer: bool = True,
+        add_state: int = 128,
+        drop_path: float = 0.,
+        device=None,
+        dtype=None
+    ) -> None:
+        factory_kwargs = {'device': device, 'dtype': dtype}
+        kernel_size_ = _pair(kernel_size)
+        stride_ = _pair(stride)
+        padding_ = padding if isinstance(padding, str) else _pair(padding)
+        dilation_ = _pair(dilation)
+        super().__init__(
+            in_channels, out_channels, kernel_size_, stride_, padding_, dilation_,
+            False, _pair(0), groups, bias, padding_mode, **factory_kwargs)
+        self.dim_preserve = dim_preserve
+        self.dim_change = dim_change
+        self.add_layer = add_layer
+        assert out_channels % in_channels == 0, \
+            f"output channel size {out_channels} must be divisible by input channel size {in_channels}"
+        d_state = out_channels // in_channels
+        num_kernels = d_state
+
+        self.agg_token = nn.Parameter(torch.zeros(1, 1, in_channels))
+        self.pos_embed = nn.Parameter(torch.zeros(1, in_channels, kernel_size, kernel_size))
+        trunc_normal_(self.pos_embed, std=.02) 
+        
+        self.ssm_kernel = S4ND(in_channels, d_state, None, 2)
+
+        if not dim_preserve:
+            # self.token_position = "middle"
+            self.token_position = "end"
+            # self.token_position = "first"
+
+    def forward(self, input: Tensor) -> Tensor:
+        '''
+        input: torch.Tensor of size [B, C, H, W]
+        '''
+        if self.padding_mode != 'zeros':
+            input = F.pad(input, self._reversed_padding_repeated_twice, mode=self.padding_mode)
+        else:
+            input = F.pad(input, self.padding*2)
+
+        B, C, H, W = input.shape
+        # input = input + self.pos_embed
+        output, _ = self.ssm_kernel(input)
+        # output = torch.cat([rearrange(*kernel(input)[:, :, :], "(B H2 W2) C -> B C H2 W2", H2=H2, W2=W2)
+        #         for kernel in self.ssm_kernels], dim=1)                     
+
+        return output
+
+# class S4NDConv2d(_ConvNd):
+#     def __init__(
+#         self,
+#         in_channels: int,
+#         out_channels: int,
+#         kernel_size: _size_2_t,
+#         stride: _size_2_t = 1,
+#         padding: Union[str, _size_2_t] = 0,
+#         dilation: _size_2_t = 1,
+#         groups: int = 1,
+#         bias: bool = True,
+#         padding_mode: str = 'zeros',  # TODO: refine this type
+#         rms_norm: bool = True,
+#         dim_change = False,
+#         dim_preserve: bool = False,
+#         add_layer: bool = True,
+#         add_state: int = 128,
+#         drop_path: float = 0.,
+#         device=None,
+#         dtype=None
+#     ) -> None:
+#         factory_kwargs = {'device': device, 'dtype': dtype}
+#         kernel_size_ = _pair(kernel_size)
+#         stride_ = _pair(stride)
+#         padding_ = padding if isinstance(padding, str) else _pair(padding)
+#         dilation_ = _pair(dilation)
+#         super().__init__(
+#             in_channels, out_channels, kernel_size_, stride_, padding_, dilation_,
+#             False, _pair(0), groups, bias, padding_mode, **factory_kwargs)
+#         self.dim_preserve = dim_preserve
+#         self.dim_change = dim_change
+#         self.add_layer = add_layer
+#         if not dim_change:
+#             assert out_channels % in_channels == 0, \
+#                 f"output channel size {out_channels} must be divisible by input channel size {in_channels}"
+#             d_state = out_channels // in_channels
+#             num_kernels = d_state
+#         else:
+#             d_state = 4
+#             num_kernels = d_state
+#             self.conv = nn.Conv2d(d_state*in_channels, out_channels, 1, 1)
+
+#         if dim_preserve:
+#             self.pos_embed = nn.Parameter(torch.zeros(1, kernel_size, kernel_size, in_channels))
+#             rms_norm = False
+#         else:
+#             self.agg_token = nn.Parameter(torch.zeros(1, 1, in_channels))
+#             self.pos_embed = nn.Parameter(torch.zeros(1, kernel_size, kernel_size, in_channels))
+#         trunc_normal_(self.pos_embed, std=.02) 
+        
+#         self.ssm_kernel = S4ND(in_channels, d_state, None, 2)
+
+#         if not dim_preserve:
+#             # self.token_position = "middle"
+#             self.token_position = "end"
+#             # self.token_position = "first"
+
+#     def forward(self, input: Tensor) -> Tensor:
+#         '''
+#         input: torch.Tensor of size [B, C, H, W]
+#         '''
+#         if self.padding_mode != 'zeros':
+#             input = F.pad(input, self._reversed_padding_repeated_twice, mode=self.padding_mode)
+#         else:
+#             input = F.pad(input, self.padding*2)
+
+#         if self.dim_preserve:
+#             return self.dim_preserving_forward(input)
+#         og_input = input
+#         # patchify input sequences
+#         input = input.unfold(dimension=2, size=self.kernel_size[0], step=self.stride[0])
+#         input = input.unfold(dimension=3, size=self.kernel_size[1], step=self.stride[1])
+#         B, C, H2, W2, K1, K2 = input.shape
+#         # pos_embedding = self.pos_linear(self.pos_embed(input))
+#         pos_embedding = rearrange(self.pos_embed.expand(B*H2*W2, -1, -1, -1), "B K1 K2 C -> B C K1 K2")
+#         # pos_embedding = repeat(pos_embedding, "B C K1 K2 -> B C H2 W2 K1 K2", H2=H2, W2=W2)
+#         # pos_embedding = rearrange(pos_embedding, "B C H2 W2 K1 K2 -> (B H2 W2) (K1 K2) C")
+#         # agg_token_pe = self.agg_token_pe.expand(B*H2*W2, -1, -1)
+#         input = rearrange(input, "B C H2 W2 K1 K2 -> B (C H2 W2) K1 K2")
+#         input = rearrange(input, "B (C H2 W2) K1 K2 -> (B H2 W2) C K1 K2", C=C, H2=H2, W2=W2)
+        
+#         pos = pos_embedding
+#         # input = torch.cat((input, pos), dim=-1)
+#         input = input + pos
+#         output, _ = self.ssm_kernel(input)
+#         # output = torch.cat([rearrange(*kernel(input)[:, :, :], "(B H2 W2) C -> B C H2 W2", H2=H2, W2=W2)
+#         #         for kernel in self.ssm_kernels], dim=1)                     
+
+#         return output
 
 class MambaGlobalConv2d(_ConvNd):
     def __init__(
