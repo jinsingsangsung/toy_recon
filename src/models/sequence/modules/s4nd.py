@@ -47,7 +47,7 @@ class S4ND(SequenceModule):
         dim=2, # Dimension of data, e.g. 2 for images and 3 for video
         out_channels=None, # Do depthwise-separable or not
         channels=1, # maps 1-dim to C-dim
-        bidirectional=True,
+        bidirectional=False,
         # Arguments for FF
         activation='gelu', # activation in between SS and FF
         ln=False, # Extra normalization
@@ -258,6 +258,8 @@ class S4ND(SequenceModule):
         # Take outer products
 
         if self.contract_version == 0: # TODO set this automatically if l_max is provided
+            # self.kernel[0]._check() 
+            # import pdb; pdb.set_trace()
             k_f = contract('... c h m, ... c h n -> ... c h m n', k_f[0], k_f[1]) # (H L1 L2) # 2D case of next line
             # k_f = self.nd_outer(*k_f)
             # sum over tensor rank
@@ -280,7 +282,6 @@ class S4ND(SequenceModule):
 
         y = torch.fft.irfftn(y_f, s=tuple([l for l in L_padded]))
 
-
         # need to cast back to half if used
         if half_precision:
             y = y.to(torch.float16)
@@ -298,15 +299,19 @@ class S4ND(SequenceModule):
 
         # Reshape to flatten channels
         # B, H, L (not flat)
-        y = rearrange(y, 'b c h ... -> b (c h) ...')
+        if not self.kernel[0].no_C:
+            y = rearrange(y, 'b c h ... -> b (c h) ...')
 
         if not self.linear:
             y = self.dropout(self.activation(y))
 
         # ensure output and input shape are the same
         if not self.transposed:
-            # B, H, L -> B, H, C
-            y = rearrange(y, "b h ... -> b ... h")
+            if not self.kernel[0].no_C:
+                # B, H, L -> B, H, C
+                y = rearrange(y, "b h ... -> b ... h")
+            else:
+                y = rearrange(y, "b c h ... -> b ... c h")
 
         # y = self.norm(y)
 

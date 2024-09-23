@@ -487,7 +487,7 @@ class S4NDConv2d(_ConvNd):
         self.pos_embed = nn.Parameter(torch.zeros(1, in_channels, kernel_size, kernel_size))
         trunc_normal_(self.pos_embed, std=.02) 
         
-        self.ssm_kernel = S4ND(in_channels, d_state, None, 2)
+        self.ssm_kernel = S4ND(in_channels, d_state, (kernel_size,kernel_size))
 
         if not dim_preserve:
             # self.token_position = "middle"
@@ -502,13 +502,18 @@ class S4NDConv2d(_ConvNd):
             input = F.pad(input, self._reversed_padding_repeated_twice, mode=self.padding_mode)
         else:
             input = F.pad(input, self.padding*2)
-
+        
         B, C, H, W = input.shape
-        # input = input + self.pos_embed
-        output, _ = self.ssm_kernel(input)
-        # output = torch.cat([rearrange(*kernel(input)[:, :, :], "(B H2 W2) C -> B C H2 W2", H2=H2, W2=W2)
-        #         for kernel in self.ssm_kernels], dim=1)                     
 
+        # patchify input sequences
+        input = input.unfold(dimension=2, size=self.kernel_size[0], step=self.stride[0])
+        input = input.unfold(dimension=3, size=self.kernel_size[1], step=self.stride[1])
+        H2, W2 = input.shape[2:4]
+        pos_embedding = repeat(self.pos_embed, "B C K1 K2 -> B C H2 W2 K1 K2", H2=H2, W2=W2)
+        input = input + pos_embedding
+        input = rearrange(input, "B C H2 W2 K1 K2 -> (B H2 W2) C K1 K2")
+        output, _ = self.ssm_kernel(input)
+        output = rearrange(output[..., -1, -1], "(B H2 W2) N C -> (B C) N H2 W2", H2=H2, W2=W2)
         return output
 
 # class S4NDConv2d(_ConvNd):

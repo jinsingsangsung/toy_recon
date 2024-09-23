@@ -13,7 +13,7 @@ import torch.multiprocessing as mp
 import torch.optim as optim
 import torch.utils.data
 from torch.utils.tensorboard import SummaryWriter
-from model_all import Cifar, SimpleConv, HNeRVDecoder, TransformInput, SSMConv
+from model_all import Cifar, SimpleConv, HNeRVDecoder, TransformInput, SSMConv, S4NDConv
 # from cifar import Cifar
 from hnerv_utils import *
 from torch.utils.data import Subset
@@ -194,7 +194,7 @@ def train(local_rank, args):
     if args.model == "conv":
         model = SimpleConv(args)
     else: 
-        model = SSMConv(args)
+        model = S4NDConv(args)
     if local_rank in [0, None]:
         encoder_param = (sum([p.data.nelement() for p in model.encoder.parameters()]) / 1e6) 
         decoder_param = (sum([p.data.nelement() for p in model.decoder.parameters()]) / 1e6) 
@@ -280,7 +280,7 @@ def train(local_rank, args):
         if sid % 10 == 0:
             print("currently working on ", sid, "-th sample.")
         if args.model == "ssm":
-            model = SSMConv(args)
+            model = S4NDConv(args)
         else:
             model = SimpleConv(args)
         model.cuda()
@@ -294,8 +294,10 @@ def train(local_rank, args):
             # forward and backward
             cur_epoch = (epoch + 1 / 1) / args.epochs
             lr = adjust_lr(optimizer, cur_epoch, args)
-            img_out = model(sample)
-            final_loss = loss_fn(img_out, sample, args.loss)      
+            img_out, img_embed = model(sample)
+            final_loss = loss_fn(img_out, sample, args.loss)
+            final_loss += loss_fn(model.encoder(img_out[None]), img_embed)
+
             optimizer.zero_grad()
             final_loss.backward()
             optimizer.step()

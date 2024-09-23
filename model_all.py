@@ -152,23 +152,29 @@ class S4NDConv(nn.Module):
     def __init__(self, args):
         super().__init__()
         self.encoder = nn.Sequential(
-            nn.Conv2d(3, 8, 4, 4),
-            S4NDConv2d(8, 64, 8, 8) # output: 8,8,8 (#param: 512)
+            S4NDConv2d(3, 12, 4, 4) # output: 3,4,8,8 (#param: 512)
         )
         # self.act = nn.SiLU()
         # self.norm = LayerNorm(12, eps=1e-6, data_format="channels_first")
         self.decoder = nn.Sequential(
-            nn.Conv2d(8, 48, 1, 1),
             nn.PixelShuffle(4)
         )
+        self.c_proj = nn.ModuleList([nn.Conv2d(4,16,1,1) for _ in range(3)])
         self.out_bias = args.out_bias
 
     def forward(self, input):
         H, W = input.shape[-2:]
         img_embed = self.encoder(input[None])
-        output = self.decoder(img_embed)
+        import pdb; pdb.set_trace()
+        output = []
+        for i, c_ in enumerate(img_embed):
+            output.append(self.c_proj[i](c_[None]))
+        output = torch.cat(output, dim=1)
+        output = self.decoder(output)
+
+        # output = output.transpose(0,1)
         img_out = OutImg(output, self.out_bias)[0]
-        return  img_out
+        return  img_out, img_embed
 
 # class S4NDConv(nn.Module):
 #     def __init__(self, args):

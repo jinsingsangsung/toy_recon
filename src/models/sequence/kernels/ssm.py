@@ -705,6 +705,10 @@ class SSMKernelDPLR(SSMKernelDiag):
         C_ = C_ - prod
         C_ = C_[..., :self.N] # Take conjugate pairs again
         self.C.copy_(_c2r(C_))
+        if self.no_C:
+            I = repeat(torch.eye(dA_L.size(-2), device=dA_L.device), "n m -> h n m", h=dA_L.size(0))
+            pseudo_C = I - dA_L if not double_length else I + dA_L
+            self.pseudo_C = _c2r(pseudo_C.transpose(-2,-3)[..., :self.N])
 
         self.l_kernel = 2*self.l_kernel if double_length else self.l_kernel+L # Preserve type/device
 
@@ -790,6 +794,7 @@ class SSMKernelDPLR(SSMKernelDiag):
 
         # Initialize C~ if necessary (done in forward pass so it's on the correct device)
         if self.l_kernel.item() == 0 and self.l_max is not None and self.l_max > 0:
+            self.no_C = True
             self._setup_C(self.l_max)
 
         # Handle sampling rate logic
@@ -804,6 +809,12 @@ class SSMKernelDPLR(SSMKernelDiag):
         discrete_L = round(self.l_kernel.item()/rate)
 
         dt, A, B, C, P, Q = self._get_params(rate)
+
+        if self.no_C:
+            if self.is_real:
+                C = self.pseudo_C
+            else:
+                C = _r2c(self.pseudo_C)
 
         # Get FFT nodes of right length
         omega, z = self._omega(discrete_L, dtype=A.dtype, device=A.device, cache=(rate==1.0))
@@ -832,6 +843,7 @@ class SSMKernelDPLR(SSMKernelDiag):
         C = torch.cat([C, Q], dim=-3) # (C+R, H, N)
 
         # Incorporate B and C batch dimensions
+        # import pdb; pdb.set_trace()
         v = B.unsqueeze(-3) * C.unsqueeze(-4)  # (B+1+R, C+R, H, N)
         v = v * dt  # Incorporate dt into B
 
