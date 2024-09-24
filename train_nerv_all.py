@@ -13,7 +13,7 @@ import torch.multiprocessing as mp
 import torch.optim as optim
 import torch.utils.data
 from torch.utils.tensorboard import SummaryWriter
-from model_all import Cifar, SimpleConv, HNeRVDecoder, TransformInput, SSMConv, S4NDConv
+from model_all import Cifar, SimpleConv, HNeRVDecoder, TransformInput, SSMConv, S4NDConv, S4NDPure
 # from cifar import Cifar
 from hnerv_utils import *
 from torch.utils.data import Subset
@@ -191,10 +191,12 @@ def train(local_rank, args):
 
 
     ##### get model params and flops #####
-    if args.model == "conv":
+    if args.model == "ssm":
+        model = SSMConv(args)
+    elif args.model == "s4ndpure":
+        model = S4NDPure(args)
+    else:
         model = SimpleConv(args)
-    else: 
-        model = S4NDConv(args)
     if local_rank in [0, None]:
         encoder_param = (sum([p.data.nelement() for p in model.encoder.parameters()]) / 1e6) 
         decoder_param = (sum([p.data.nelement() for p in model.decoder.parameters()]) / 1e6) 
@@ -280,7 +282,9 @@ def train(local_rank, args):
         if sid % 10 == 0:
             print("currently working on ", sid, "-th sample.")
         if args.model == "ssm":
-            model = S4NDConv(args)
+            model = SSMConv(args)
+        elif args.model == "s4ndpure":
+            model = S4NDPure(args)
         else:
             model = SimpleConv(args)
         model.cuda()
@@ -294,9 +298,12 @@ def train(local_rank, args):
             # forward and backward
             cur_epoch = (epoch + 1 / 1) / args.epochs
             lr = adjust_lr(optimizer, cur_epoch, args)
-            img_out, img_embed = model(sample)
+            try:
+                img_out, img_embed = model(sample)
+            except:
+                img_out = model(sample)
             final_loss = loss_fn(img_out, sample, args.loss)
-            final_loss += loss_fn(model.encoder(img_out[None]), img_embed)
+            # final_loss += loss_fn(model.encoder(img_out[None]), img_embed)
 
             optimizer.zero_grad()
             final_loss.backward()

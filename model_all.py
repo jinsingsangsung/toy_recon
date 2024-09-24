@@ -21,6 +21,11 @@ import glob
 from mambaconv import MambaConv2d, MambaGlobalConv2d, MambaUpConv2d, MambaConv2dVariant, S4NDConv2d
 from einops import rearrange
 import pickle
+from einops import rearrange, repeat
+
+_c2r = torch.view_as_real
+contract = torch.einsum
+from scipy import special as ss
 
 # Video dataset
 class Cifar(Dataset):
@@ -87,11 +92,11 @@ def OutImg(x, out_bias='tanh'):
 class SimpleConv(nn.Module):
     def __init__(self, args):
         super().__init__()
-        self.encoder = nn.Conv2d(3, 8, 4, 4) # output: 8,8,8 (#param: 512)
+        self.encoder = nn.Conv2d(3, 12, 4, 4) # output: 8,8,8 (#param: 512)
         # self.act = nn.GELU()
         # self.norm = LayerNorm(8, eps=1e-6, data_format="channels_first")
         self.decoder = nn.Sequential(
-            nn.Conv2d(8, 48, 1, 1),
+            nn.Conv2d(12, 48, 1, 1),
             nn.PixelShuffle(4)
         )
         self.out_bias = args.out_bias
@@ -134,7 +139,10 @@ class SSMConvVariant(nn.Module):
 class SSMConv(nn.Module):
     def __init__(self, args):
         super().__init__()
-        self.encoder = MambaConv2d(3, 12, 4, 4) # output: 12,8,8 (#param: 768)
+        self.encoder = nn.Sequential(
+            MambaConv2d(3, 12, 32, 32), # output: 12,8,8 (#param: 768)
+            nn.Conv2d(12, 12, 4, 4)
+        )
         self.decoder = nn.Sequential(
             nn.Conv2d(12, 48, 1, 1),
             nn.PixelShuffle(4)
@@ -152,26 +160,79 @@ class S4NDConv(nn.Module):
     def __init__(self, args):
         super().__init__()
         self.encoder = nn.Sequential(
-            S4NDConv2d(3, 12, 4, 4) # output: 3,4,8,8 (#param: 512)
+            S4NDConv2d(3, 12, 4, 4), # output: 3,4,8,8 (#param: 512)
+            nn.Conv2d(12, 12, 4, 4),
+            # nn.Conv2d(4, 4, 4, 4), # down scale
+            # nn.Conv2d(4, 4, 4, 4), # down scale
+            # nn.Conv2d(4, 4, 4, 4), # down scale per channel
         )
         # self.act = nn.SiLU()
         # self.norm = LayerNorm(12, eps=1e-6, data_format="channels_first")
         self.decoder = nn.Sequential(
-            nn.PixelShuffle(4)
-        )
+            nn.Conv2d(12, 48, 1, 1),
+            # nn.Conv2d(4, 16, 1, 1),
+            # nn.Conv2d(4, 16, 1, 1),
+            # nn.Conv2d(4, 16, 1, 1),
+            nn.PixelShuffle(4),
+        ) 
         self.c_proj = nn.ModuleList([nn.Conv2d(4,16,1,1) for _ in range(3)])
         self.out_bias = args.out_bias
+        self.A_decode = nn.ModuleList([
+            nn.ModuleList([nn.Linear(2,64), nn.SiLU(), nn.Linear(64,4)]) for _ in range(2)
+        ])
+        self.B_decode = nn.ModuleList([
+            nn.ModuleList([nn.Linear(2,64), nn.SiLU(), nn.Linear(64,4)]) for _ in range(2)
+        ])
+        # self.agg = nn.ModuleList([
+        #     nn.Linear(4,1) for _ in range(2)
+        # ])
+
+    def generate_decode_tensor(self, N, A_list, B_list, img_embed):
+        tgt_list = []
+        for j, (A, B) in enumerate(zip(A_list, B_list)):
+            vals = np.linspace(0.0, 1.0, 4)
+            tgt = torch.linspace(0,1, 4, device=A.device)
+            # tgt = ss.eval_legendre(np.arange(N)[:, None], 2 * vals - 1)
+            # import pdb; pdb.set_trace()
+            deg = torch.arange(0,N, device=tgt.device)
+            A_ = self.A_decode[j][2](self.A_decode[j][1](self.A_decode[j][0](_c2r(A))))
+            A_ = self.A_decode[j][2](self.A_decode[j][1](self.A_decode[j][0](A_.transpose(-1,-2))))
+            B_ = self.B_decode[j][2](self.B_decode[j][1](self.B_decode[j][0](_c2r(B))))
+            B_ = self.B_decode[j][2](self.B_decode[j][1](self.B_decode[j][0](B_.transpose(-1,-2))))
+            tgt = repeat(tgt.pow(deg), "n -> b c n", b=B_.size(0), c=B_.size(1))
+            # tgt = repeat(torch.tensor(tgt, device=B_.device), "m n -> b c m n", b=B_.size(0), c=B_.size(1))
+            tgt_list.append(tgt[..., None] * (A_ + B_))
+            # tgt_list.append(tgt)
+        tgt_x, tgt_y = tgt_list[0], tgt_list[1]
+        tgt_map = contract("bcmn,bcon->bcnmo", tgt_x, tgt_y)
+        output = contract("cnhw,bcnkl->bchkwl", img_embed, tgt_map)
+        output = rearrange(output, "b c h k1 w k2 -> b c (h k1) (w k2)")
+        return output
 
     def forward(self, input):
         H, W = input.shape[-2:]
         img_embed = self.encoder(input[None])
-        import pdb; pdb.set_trace()
-        output = []
-        for i, c_ in enumerate(img_embed):
-            output.append(self.c_proj[i](c_[None]))
-        output = torch.cat(output, dim=1)
-        output = self.decoder(output)
-
+        # output = []
+        # for j, c_embed in enumerate(img_embed.transpose(0,1)):
+        #     output.append(self.encoder[j+1](c_embed))
+        # img_embed = torch.stack(output, dim=1)
+        # extract A
+        A_list = [self.encoder[0].ssm_kernel.kernel[i]._get_params()[1] for i in range(2)]
+        B_list = [self.encoder[0].ssm_kernel.kernel[i]._get_params()[2] for i in range(2)]
+        # C_output = []
+        # for i, c_ in enumerate(img_embed):
+        #     C_output.append(self.c_proj[i](c_[None]))
+        # output = self.generate_decode_tensor(4, A_list, B_list, img_embed)
+        # C_output = torch.cat(C_output, dim=1)
+        # C_output = self.decoder(C_output)
+        # output = C_output + output
+        # output = []
+        # for i, c_output in enumerate(img_embed.transpose(0,1)):
+        #     output.append(self.decoder[i](c_output))
+        # output = torch.cat(output, dim=1)
+        # output = self.decoder[-1](output)
+        output = self.decoder(img_embed)
+        # import pdb; pdb.set_trace()
         # output = output.transpose(0,1)
         img_out = OutImg(output, self.out_bias)[0]
         return  img_out, img_embed
@@ -197,6 +258,31 @@ class S4NDConv(nn.Module):
 #         # img_out = OutImg(output, self.out_bias)[0]
 #         img_out = OutImg(img_embed, self.out_bias)[0]
 #         return  img_out
+
+class S4NDPure(nn.Module):
+    def __init__(self, args):
+        super().__init__()
+        from src.models.sequence.modules.s4nd import S4ND
+        self.encoder = nn.ModuleList([
+            nn.Conv2d(3, 8, 4, 4),
+            S4ND(8, 4),
+        ])
+        # self.act = nn.SiLU()
+        # self.norm = LayerNorm(12, eps=1e-6, data_format="channels_first")
+        self.decoder = nn.Sequential(
+            nn.Conv2d(8, 48, 1, 1),
+            nn.PixelShuffle(4)
+        )
+        self.out_bias = args.out_bias
+
+    def forward(self, input):
+        H, W = input.shape[-2:]
+        img_embed = self.encoder[0](input[None])
+        img_embed, _ = self.encoder[1](img_embed)
+        output = self.decoder(img_embed)
+        img_out = OutImg(output, self.out_bias)[0]
+        # img_out = OutImg(img_embed, self.out_bias)[0]
+        return  img_out
 
 class HNeRVDecoder(nn.Module):
     def __init__(self, model):

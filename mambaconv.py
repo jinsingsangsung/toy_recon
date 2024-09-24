@@ -128,7 +128,7 @@ class MambaConv2d(_ConvNd):
         self.dim_preserve = dim_preserve
         # assert out_channels % in_channels == 0, \
         #     f"output channel size {out_channels} must be divisible by input channel size {in_channels}"
-        d_state = kernel_size**2 // 2 + 4
+        d_state = kernel_size**2 // 8
         num_kernels = 1
         # self.mamba_kernels = nn.ModuleList([
         #     partial(Mamba, d_state=d_state, layer_idx=layer_idx, **factory_kwargs)(in_channels)
@@ -230,8 +230,10 @@ class MambaConv2d(_ConvNd):
             pos = pos_embedding
             # input = torch.cat((input, pos), dim=-1)
             input = input + pos
-            output = torch.cat([rearrange(self.fused_add_norm(*kernel(input))[:, -1, :], "(B H2 W2) C -> B C H2 W2", H2=H2, W2=W2)
-                    for kernel in self.mamba_kernels], dim=1)     
+            # output = torch.cat([rearrange(self.fused_add_norm(*kernel(input))[:, -1, :], "(B H2 W2) C -> B C H2 W2", H2=H2, W2=W2)
+            #         for kernel in self.mamba_kernels], dim=1)     
+            output = torch.cat([rearrange(self.fused_add_norm(*kernel(input)), "(B H2 W2) (K1 K2) C -> B C (H2 K1) (W2 K2)", H2=H2, W2=W2, K1=K1, K2=K2)
+                    for kernel in self.mamba_kernels], dim=1)
         elif self.token_position == "first":
             # input = torch.cat((agg_token, input), dim=1)
             # pos = torch.cat((agg_token_pe, pos_embedding), dim=1)
@@ -240,7 +242,7 @@ class MambaConv2d(_ConvNd):
             output = torch.cat([rearrange(self.fused_add_norm(*kernel(input))[:, 0, :], "(B H2 W2) C -> B C H2 W2", H2=H2, W2=W2)
                     for kernel in self.mamba_kernels], dim=1)
         # output = self.conv(output)
-        # output = self.linear(output)
+        output = self.linear(output)
         return output
     
     def dim_preserving_forward(self, input: Tensor) -> Tensor:
@@ -487,7 +489,9 @@ class S4NDConv2d(_ConvNd):
         self.pos_embed = nn.Parameter(torch.zeros(1, in_channels, kernel_size, kernel_size))
         trunc_normal_(self.pos_embed, std=.02) 
         
-        self.ssm_kernel = S4ND(in_channels, d_state, (kernel_size,kernel_size))
+        # self.ssm_kernel = S4ND(in_channels, d_state, (kernel_size,kernel_size))
+        self.ssm_kernel = S4ND(in_channels, d_state)
+        self.linear = nn.Conv2d(3,12,1,1)
 
         if not dim_preserve:
             # self.token_position = "middle"
@@ -513,7 +517,10 @@ class S4NDConv2d(_ConvNd):
         input = input + pos_embedding
         input = rearrange(input, "B C H2 W2 K1 K2 -> (B H2 W2) C K1 K2")
         output, _ = self.ssm_kernel(input)
-        output = rearrange(output[..., -1, -1], "(B H2 W2) N C -> (B C) N H2 W2", H2=H2, W2=W2)
+        # output = rearrange(output[..., -1, -1], "(B H2 W2) N C -> (B C) N H2 W2", H2=H2, W2=W2)
+        output = rearrange(output, "(B H2 W2) C K1 K2  -> B C (H2 K1) (W2 K2)", H2=H2, W2=W2)
+        # output = rearrange(output[..., -1, -1], "(B H2 W2) N C -> (s) N H2 W2", H2=H2, W2=W2)
+        output = self.linear(output)
         return output
 
 # class S4NDConv2d(_ConvNd):

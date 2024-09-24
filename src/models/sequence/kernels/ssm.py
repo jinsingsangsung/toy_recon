@@ -791,7 +791,7 @@ class SSMKernelDPLR(SSMKernelDiag):
 
     def forward(self, state=None, rate=1.0, L=None):
         """See Kernel.forward() for argument documentation."""
-
+        self.no_C = False
         # Initialize C~ if necessary (done in forward pass so it's on the correct device)
         if self.l_kernel.item() == 0 and self.l_max is not None and self.l_max > 0:
             self.no_C = True
