@@ -13,7 +13,7 @@ import torch.multiprocessing as mp
 import torch.optim as optim
 import torch.utils.data
 from torch.utils.tensorboard import SummaryWriter
-from model_all import Cifar, SimpleConv, HNeRVDecoder, TransformInput, SSMConv, S4NDConv, S4NDPure
+from model_all import Cifar, SimpleConv, HNeRVDecoder, TransformInput, SSMConv, S4NDConv, S4NDPure, PureTransformer, HiPPOConvPure, S4Pure, S5Pure
 # from cifar import Cifar
 from hnerv_utils import *
 from torch.utils.data import Subset
@@ -26,7 +26,7 @@ from lion_pytorch import Lion
 def main():
     parser = argparse.ArgumentParser()
     # Dataset parameters
-    parser.add_argument('--data_path', type=str, default='/mnt/tmp/cifar-10-batches-py', help='data path for vid')
+    parser.add_argument('--data_path', type=str, default='/mnt/tmp/cifar-100-python', help='data path for vid')
     parser.add_argument('--vid', type=str, default='bunny', help='video id',)
     parser.add_argument('--shuffle_data', action='store_true', help='randomly shuffle the frame idx')
     parser.add_argument('--data_split', type=str, default='1_1_1', 
@@ -92,7 +92,7 @@ def main():
     parser.add_argument('--suffix', default='', help="suffix str for outf")
     
     parser.add_argument('--ms_mamba', action='store_true', help='apply multiscale mamba')
-    parser.add_argument('--dataset_length', type=int, default=100)
+    parser.add_argument('--dataset_length', type=int, default=10000)
     parser.add_argument('--model', default='ssm', help="suffix str for outf")
 
 
@@ -195,6 +195,14 @@ def train(local_rank, args):
         model = SSMConv(args)
     elif args.model == "s4ndpure":
         model = S4NDPure(args)
+    elif args.model == "transformer":
+        model = PureTransformer(args)        
+    elif args.model == "hippo":
+        model = HiPPOConvPure(args)
+    elif args.model == "s4pure":
+        model = S4Pure(args)
+    elif args.model == "s5pure":
+        model = S5Pure(args)
     else:
         model = SimpleConv(args)
     if local_rank in [0, None]:
@@ -285,6 +293,14 @@ def train(local_rank, args):
             model = SSMConv(args)
         elif args.model == "s4ndpure":
             model = S4NDPure(args)
+        elif args.model == "transformer":
+            model = PureTransformer(args)                  
+        elif args.model == "hippo":
+            model = HiPPOConvPure(args)
+        elif args.model == "s4pure":
+            model = S4Pure(args)
+        elif args.model == "s5pure":
+            model = S5Pure(args)            
         else:
             model = SimpleConv(args)
         model.cuda()

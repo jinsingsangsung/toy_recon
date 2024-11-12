@@ -22,16 +22,230 @@ from mambaconv import MambaConv2d, MambaGlobalConv2d, MambaUpConv2d, MambaConv2d
 from einops import rearrange
 import pickle
 from einops import rearrange, repeat
+from einops import rearrange, repeat
+from torch.nn.common_types import _size_1_t, _size_2_t, _size_3_t
+from typing import Optional, List, Tuple, Union
+from torch.nn.modules.utils import _single, _pair, _triple, _reverse_repeat_tuple
+from torch.nn.modules.conv import _ConvNd
+from torch import Tensor
+from parallel_scan import EfficientParallelScanFunction, ParallelScanFunction
+from s4 import S4Block
+from torch.nn.init import kaiming_normal_, normal_
+from scipy.linalg import block_diag
+from functools import partial
 
 _c2r = torch.view_as_real
 contract = torch.einsum
 from scipy import special as ss
 
+def transition(measure, N, **measure_args):
+    """ A, B transition matrices for different measures """
+    if measure == 'lagt':
+        # A_l = (1 - dt / 4) * np.eye(N) + dt / 2 * np.tril(np.ones((N, N)))
+        # A_r = (1 + dt / 4) * np.eye(N) - dt / 2 * np.tril(np.ones((N, N)))
+        # alpha = dt / 2 / (1 - dt / 4)
+        # col = -alpha / (1 + alpha) ** np.arange(1, N + 1)
+        # col[0] += 1
+        # A_l_inv = la.toeplitz(col / (1 - dt / 4), np.zeros(N))
+        b = measure_args.get('beta', 1.0)
+        A = np.eye(N) / 2 - np.tril(np.ones((N, N)))
+        B = b * np.ones((N, 1))
+    if measure == 'tlagt':
+        # beta = 1 corresponds to no tilt
+        # b = measure_args['beta']
+        b = measure_args.get('beta', 1.0)
+        A = (1.-b)/2 * np.eye(N) - np.tril(np.ones((N, N)))
+        B = b * np.ones((N, 1))
+    elif measure == 'legt':
+        Q = np.arange(N, dtype=np.float64)
+        R = (2*Q + 1)[:, None] # / theta
+        j, i = np.meshgrid(Q, Q)
+        A = np.where(i < j, -1, (-1.)**(i-j+1)) * R
+        B = (-1.)**Q[:, None] * R
+
+    elif measure == 'legs':
+        q = np.arange(N, dtype=np.float64)
+        col, row = np.meshgrid(q, q)
+        r = 2 * q + 1
+        M = -(np.where(row >= col, r, 0) - np.diag(q))
+        T = np.sqrt(np.diag(2 * q + 1))
+        A = T @ M @ np.linalg.inv(T)
+        B = np.diag(T)[:, None]
+    return A, B
+
+def batch_solve_triangular(A, b, upper=False):
+    """
+    A: shape (batch_size, n, n)
+    b: shape (batch_size, n) or (batch_size, n, m)
+    """
+    return torch.triangular_solve(b.unsqueeze(-1) if b.dim() == 2 else b, A, upper=upper)[0]
+
+def construct_A_B_stacked(A, B, T, discretization='bilinear'):
+    """
+    A: shape (N, N)
+    B: shape (N)
+    """
+    N, _ = A.shape
+    device = A.device
+    dtype = A.dtype
+
+    t_range = torch.arange(1, T + 1, device=device, dtype=dtype).view(T, 1, 1)
+    
+    At = A.unsqueeze(0).expand(T, N, N) / t_range
+    Bt = B.unsqueeze(0).expand(T, N) / t_range.squeeze(-1)
+    
+    eye_N = torch.eye(N, device=device, dtype=dtype)
+    eye_N_stacked = eye_N.unsqueeze(0).expand(T, N, N)
+    
+    if discretization == 'forward':
+        A_stacked = eye_N_stacked + At
+        B_stacked = Bt
+    elif discretization == 'backward':
+        A_stacked = torch.triangular_solve(eye_N_stacked, eye_N_stacked - At, upper=False)[0]
+        B_stacked = torch.triangular_solve(Bt.unsqueeze(-1), eye_N_stacked - At, upper=False)[0].squeeze(-1)
+    elif discretization == 'bilinear':
+        A_stacked = torch.triangular_solve(eye_N_stacked + At / 2, eye_N_stacked - At / 2, upper=False)[0]
+        B_stacked = torch.triangular_solve(Bt.unsqueeze(-1), eye_N_stacked - At / 2, upper=False)[0].squeeze(-1)
+    elif discretization == 'zoh':
+        log_t = torch.log(t_range + 1) - torch.log(t_range)
+        A_stacked = torch.matrix_exp(A.unsqueeze(0) * log_t)
+        B_stacked = torch.triangular_solve(A_stacked @ B.unsqueeze(0).unsqueeze(-1) - B.unsqueeze(0).unsqueeze(-1), A.unsqueeze(0).expand(T, N, N), upper=False)[0].squeeze(-1)
+    else:
+        raise ValueError(f"Unknown discretization method: {discretization}")
+    
+    return A_stacked, B_stacked
+
+class HippoConv2d(_ConvNd):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int, # means nothing, just for compatibility
+        d_state: int,
+        kernel_size: _size_2_t,
+        stride: _size_2_t = 1,  # means nothing, just for compatibility
+        padding: Union[str, _size_2_t] = 0,
+        dilation: _size_2_t = 1,
+        groups: int = 1,
+        measure: str = "legs",
+        discretization: str = "bilinear",
+        dt: float = 0.27,
+        bias: bool = True,
+        padding_mode: str = 'zeros',
+        device=None,
+        dtype=None,
+    ) -> None:
+        factory_kwargs = {'device': device, 'dtype': dtype}
+        kernel_size_ = _pair(kernel_size)
+        stride_ = _pair(stride)
+        padding_ = padding if isinstance(padding, str) else _pair(padding)
+        dilation_ = _pair(dilation)
+        super().__init__(
+            in_channels, out_channels, kernel_size_, stride_, padding_, dilation_,
+            False, _pair(0), groups, bias, padding_mode,)
+        if stride != kernel_size:
+            stride = kernel_size
+        self.N = d_state
+        self.measure = measure
+        assert discretization in ["zoh", "bilinear", "forward", "backward"], \
+            "discretization must be one of 'zoh', 'bilinear', 'forward' or 'backward'"
+        self.discretization = discretization
+        self.dt = dt
+        N = d_state
+        A, B = transition(self.measure, N)
+        B = B.squeeze(-1)
+        A = torch.tensor(A, **factory_kwargs).float()
+        B = torch.tensor(B, **factory_kwargs).float()
+        T = kernel_size**2
+        A_stacked, B_stacked = construct_A_B_stacked(A, B, T, discretization=discretization)
+        self.A_stacked = A_stacked.requires_grad_(False).contiguous()
+        self.B_stacked = B_stacked.requires_grad_(False).contiguous()
+        vals = np.linspace(0.0, 1.0, T)
+        B_cpu = B.cpu().numpy()
+        self.eval_matrix = torch.Tensor((B_cpu[:, None] * ss.eval_legendre(np.arange(N)[:, None], 2 * vals - 1)).T).float().contiguous()
+        self.linear = nn.Linear(N, 1)
+
+    def zigzag_flatten(self, input: Tensor) -> Tensor:
+        '''
+        input: torch.Tensor of size [B, C, H, W]
+        output: torch.Tensor of size [B, C, H*W],
+        where spatial tokens are aligned in zigzag manner
+        '''
+        B, C, H, W = input.shape
+        # flattened zigzag indices
+        zigzag = torch.arange(H*W).view(H, W)
+        zigzag[1::2, :] = zigzag[1::2, :].flip(dims=[1])
+        zigzag = zigzag.view(-1)
+        # Rearrange the input tensor
+        input = input.view(B, C, -1)
+        input = input[:, :, zigzag]
+        return input
+
+    def forward(self, input: Tensor) -> Tensor:
+        '''
+        input: torch.Tensor of size [B, C, H, W]
+        output: torch.Tensor of size [B, C, N, H/K, W/K]
+        where N: d_state, K: kernel_size
+        '''
+        if self.padding_mode != 'zeros':
+            input = F.pad(input, self._reversed_padding_repeated_twice, mode=self.padding_mode)
+        else:
+            input = F.pad(input, self.padding*2)
+
+        # patchify input sequences
+        input = input.unfold(dimension=2, size=self.kernel_size[0], step=self.stride[0])
+        input = input.unfold(dimension=3, size=self.kernel_size[1], step=self.stride[1])
+        batch_size, _, H2, W2, _, _ = input.shape
+
+        input = rearrange(input, "B C H2 W2 K1 K2 -> (B H2 W2) C K1 K2")
+        input = self.zigzag_flatten(input) # B*H2*W2, C, K1*K2
+        N = self.N
+        if self.kernel_size[0]**2 > 32:
+            scan_function = EfficientParallelScanFunction.apply
+        else:
+            scan_function = ParallelScanFunction.apply
+        if input.size(0) > 32:
+            # to regard GPU memory
+            outputs = []
+            num_batches = input.size(0) // 512 + 1
+            for i in range(num_batches):
+                start_idx = i * 512
+                end_idx = min((i + 1) * 512, input.size(0))
+                batch_input = input[start_idx:end_idx]
+                batch_A = repeat(self.A_stacked, "T N1 N2 -> B C T N1 N2", B=batch_input.size(0), C=input.size(1), N1=N, N2=N).cuda()
+                batch_B = repeat(self.B_stacked, "T N -> B C T N", B=batch_input.size(0), C=input.size(1), N=N).cuda()
+                batch_output = scan_function(batch_input, batch_A, batch_B)
+                outputs.append(batch_output.cpu())
+                del batch_input, batch_A, batch_B, batch_output
+                torch.cuda.empty_cache()
+            output = torch.cat(outputs, dim=0).cuda()
+        else:
+            A = repeat(self.A_stacked, "T N1 N2 -> B C T N1 N2", B=input.size(0), C=input.size(1), N1=N, N2=N).contiguous().cuda()
+            B = repeat(self.B_stacked, "T N -> B C T N", B=input.size(0), C=input.size(1), N=N).contiguous().cuda()
+            output = scan_function(input, A, B)
+
+        output = rearrange(output[:,:,:,:], "(B H2 W2) C (K1 K2) N -> B C (H2 K1) (W2 K2) N", B=batch_size, H2=H2, W2=W2, K1=self.kernel_size[0], K2=self.kernel_size[1])
+        output = self.linear(output)[..., 0]
+
+        return output
+
+    def reconstruct(self, input: Tensor) -> Tensor:
+        '''
+        input: torch.Tensor of size [B, C*N, H/K, W/K]
+        output: torch.Tensor of size [B, C, H, W]
+        '''
+        B, C, H, W = input.shape
+        output = rearrange(input, "B (C N) H W -> B C N H W", B=B, C=C//self.N, N=self.N, H=H, W=W)
+        output = torch.einsum("bcnhw,kn -> bckhw", output, self.eval_matrix.cuda())
+        output = self.zigzag_flatten(rearrange(output, "B C (K1 K2) H W -> (B H W) C K1 K2", K1=self.kernel_size[0], K2=self.kernel_size[1]))
+        output = rearrange(output, "(B H W) C (K1 K2) -> B C (H K1) (W K2)", B=B, H=H, W=W, K1=self.kernel_size[0], K2=self.kernel_size[1])
+        return output
+
+
 # Video dataset
 class Cifar(Dataset):
     def __init__(self, args):
         # self.video = [os.path.join(args.data_path, x) for x in sorted(os.listdir(args.data_path))]
-        data_path = os.path.join(args.data_path, "test_batch")
+        data_path = os.path.join(args.data_path, "test")
         with open(data_path, "rb") as fo:
             self.cifar_images = torch.from_numpy(pickle.load(fo, encoding = "bytes")[b"data"])
         if args.dataset_length < 10000:
@@ -92,12 +306,12 @@ def OutImg(x, out_bias='tanh'):
 class SimpleConv(nn.Module):
     def __init__(self, args):
         super().__init__()
-        self.encoder = nn.Conv2d(3, 12, 4, 4) # output: 8,8,8 (#param: 512)
+        self.encoder = nn.Conv2d(3, 8, 8, 8) # output: 8,4,4 (#param: 768)
         # self.act = nn.GELU()
         # self.norm = LayerNorm(8, eps=1e-6, data_format="channels_first")
         self.decoder = nn.Sequential(
-            nn.Conv2d(12, 48, 1, 1),
-            nn.PixelShuffle(4)
+            nn.Conv2d(8, 3*64, 1, 1),
+            nn.PixelShuffle(8)
         )
         self.out_bias = args.out_bias
 
@@ -110,7 +324,7 @@ class SimpleConv(nn.Module):
 class SSMConvVariant(nn.Module):
     def __init__(self, args):
         super().__init__()
-        self.encoder = MambaConv2dVariant(3, 8, 4, 4) # output: 12,8,8 (#param: 768)
+        self.encoder = MambaConv2dVariant(3, 8, 8, 8) # output: 8,4,4 (#param: 768)
         # self.act = nn.SiLU()
         # self.norm = LayerNorm(8, eps=1e-6, data_format="channels_first")
         self.decoder = nn.Sequential(
@@ -140,12 +354,12 @@ class SSMConv(nn.Module):
     def __init__(self, args):
         super().__init__()
         self.encoder = nn.Sequential(
-            MambaConv2d(3, 12, 32, 32), # output: 12,8,8 (#param: 768)
-            nn.Conv2d(12, 12, 4, 4)
+            MambaConv2d(3, 3, 32, 32), # output: 12,32,32 (#param: 768)
+            nn.Conv2d(3, 8, 8, 8), # 8, 4, 4
         )
         self.decoder = nn.Sequential(
-            nn.Conv2d(12, 48, 1, 1),
-            nn.PixelShuffle(4)
+            nn.Conv2d(8, 3*64, 1, 1),
+            nn.PixelShuffle(8)
         )
         self.out_bias = args.out_bias
 
@@ -155,6 +369,42 @@ class SSMConv(nn.Module):
         output = self.decoder(img_embed)
         img_out = OutImg(output, self.out_bias)[0]
         return  img_out
+
+class PureTransformer(nn.Module):
+    def __init__(self, args):
+        super().__init__()
+        self.pos_embed = nn.Parameter(torch.zeros(1, 3, 32, 32))
+        self.transformer = nn.ModuleList([
+            nn.Conv2d(3, 32, 1, 1),
+            nn.LayerNorm([32, 32, 32]),
+            nn.MultiheadAttention(
+                embed_dim=32,
+                num_heads=8,
+                batch_first=True
+            ),
+            nn.Conv2d(32, 3, 1, 1)
+        ])
+        self.encoder = nn.Sequential(
+            nn.Conv2d(3, 8, 8, 8), # 8, 4, 4
+        )
+        self.decoder = nn.Sequential(
+            nn.Conv2d(8, 3*64, 1, 1),
+            nn.PixelShuffle(8)
+        )
+        self.out_bias = args.out_bias
+
+    def forward(self, input):
+        H, W = input.shape[-2:]
+        img_embed = self.transformer[0](input[None] + self.pos_embed)
+        img_embed = self.transformer[1](img_embed)
+        img_embed = rearrange(img_embed, "B C H W -> B (H W) C")
+        img_embed = self.transformer[2](img_embed, img_embed, img_embed)[0]
+        img_embed = rearrange(img_embed, "B (H W) C -> B C H W", H=H, W=W)
+        img_embed = self.transformer[3](img_embed)
+        img_embed = self.encoder(img_embed)
+        output = self.decoder(img_embed)
+        img_out = OutImg(output, self.out_bias)[0]
+        return  img_out        
 
 class S4NDConv(nn.Module):
     def __init__(self, args):
@@ -264,25 +514,137 @@ class S4NDPure(nn.Module):
         super().__init__()
         from src.models.sequence.modules.s4nd import S4ND
         self.encoder = nn.ModuleList([
-            nn.Conv2d(3, 8, 4, 4),
-            S4ND(8, 4),
+            S4ND(3, 8),
+            nn.Conv2d(3, 8, 8, 8),
+            # S4ND(8, 4),
         ])
         # self.act = nn.SiLU()
         # self.norm = LayerNorm(12, eps=1e-6, data_format="channels_first")
         self.decoder = nn.Sequential(
-            nn.Conv2d(8, 48, 1, 1),
-            nn.PixelShuffle(4)
+            nn.Conv2d(8, 3*64, 1, 1),
+            nn.PixelShuffle(8)
         )
         self.out_bias = args.out_bias
 
     def forward(self, input):
         H, W = input.shape[-2:]
-        img_embed = self.encoder[0](input[None])
-        img_embed, _ = self.encoder[1](img_embed)
+        img_embed, _ = self.encoder[0](input[None])
+        img_embed = self.encoder[1](img_embed)
         output = self.decoder(img_embed)
         img_out = OutImg(output, self.out_bias)[0]
         # img_out = OutImg(img_embed, self.out_bias)[0]
         return  img_out
+
+class HiPPOConvPure(nn.Module):
+    def __init__(self, args):
+        super().__init__()
+        self.encoder = nn.Sequential(
+            HippoConv2d(3, 3, 16, 32, 32), # output: 12,32,32 (#param: 768)
+            nn.Conv2d(3, 8, 8, 8), # 8, 4, 4
+        )
+        self.decoder = nn.Sequential(
+            nn.Conv2d(8, 3*64, 1, 1),
+            nn.PixelShuffle(8)
+        )
+        self.out_bias = args.out_bias
+
+    def forward(self, input):
+        H, W = input.shape[-2:]
+        img_embed = self.encoder(input[None])
+        output = self.decoder(img_embed)
+        img_out = OutImg(output, self.out_bias)[0]
+        return  img_out
+
+class S4Pure(nn.Module):
+    def __init__(self, args):
+        super().__init__()
+        self.pos_embed = nn.Parameter(torch.zeros(1, 3, 32, 32))
+        self.s4block = S4Block(d_model=3, d_state=16, transposed=True)
+        self.encoder = nn.Sequential(
+            nn.Conv2d(3, 8, 8, 8), # 8, 4, 4
+        )
+        self.decoder = nn.Sequential(
+            nn.Conv2d(8, 3*64, 1, 1),
+            nn.PixelShuffle(8)
+        )
+        self.out_bias = args.out_bias
+    
+    def forward(self, input):
+        H, W = input.shape[-2:]
+        img_embed = rearrange(input[None], "b c h w -> b c (h w)")
+        img_embed = self.s4block(img_embed)[0]
+        img_embed = rearrange(img_embed, "b c (h w) -> b c h w", h=H, w=W)
+        img_embed = self.encoder(img_embed)
+        output = self.decoder(img_embed)
+        img_out = OutImg(output, self.out_bias)[0]
+        return  img_out
+
+class S5Pure(nn.Module):
+    def __init__(self, args):
+        super().__init__()
+        from s5 import make_DPLR_HiPPO, SequenceLayer, S5SSM
+        blocks = 4
+        ssm_size = 16
+        block_size = int(ssm_size / blocks)
+        self.block_size = block_size
+        
+        # Initialize state matrix A using approximation to HiPPO-LegS matrix
+        Lambda, _, B, V, B_orig = make_DPLR_HiPPO(block_size)
+
+        Lambda = Lambda[:block_size]
+        V = V[:, :block_size]
+        Vc = V.conj().T
+
+        # If initializing state matrix A as block-diagonal, put HiPPO approximation
+        # on each block
+        Lambda = (Lambda * np.ones((blocks, block_size))).ravel()
+        V = block_diag(*([V] * blocks)) #.astype(np.complex64)
+        Vinv = block_diag(*([Vc] * blocks)) #.astype(np.complex64)
+        ssm =S5SSM(Lambda_re_init=Lambda.real,
+            Lambda_im_init=Lambda.imag,
+            V=V,
+            Vinv=Vinv,
+            H=3,
+            P=16,
+            C_init="trunc_standard_normal",
+            discretization="zoh",
+            dt_min=0.001,
+            dt_max=0.1,
+            conj_sym=False,
+            clip_eigs=False,
+            bidirectional=False)
+
+        self.pos_embed = nn.Parameter(torch.zeros(1, 3, 32, 32))
+        self.s5block = SequenceLayer(
+            ssm=ssm, 
+            dropout=0.0, 
+            d_model=3, 
+            activation="gelu", 
+            training=True, 
+            prenorm=False, 
+            batchnorm=False, 
+            bn_momentum=0.9, 
+            step_rescale=1.0
+        )
+        self.encoder = nn.Sequential(
+            nn.Conv2d(3, 8, 8, 8), # 8, 4, 4
+        )
+        self.decoder = nn.Sequential(
+            nn.Conv2d(8, 3*64, 1, 1),
+            nn.PixelShuffle(8)
+        )
+        self.out_bias = args.out_bias
+    
+    def forward(self, input):
+        H, W = input.shape[-2:]
+        img_embed = rearrange(input, "c h w -> (h w) c")
+        img_embed = self.s5block(img_embed)
+        img_embed = rearrange(img_embed, "(h w) c -> c h w", h=H, w=W)
+        img_embed = self.encoder(img_embed)
+        output = self.decoder(img_embed)
+        img_out = OutImg(output, self.out_bias)
+        return  img_out
+
 
 class HNeRVDecoder(nn.Module):
     def __init__(self, model):
