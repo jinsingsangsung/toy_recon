@@ -42,6 +42,15 @@ def build_2d_sincos_pos_embed(channels, h, w):
     pos_embed = torch.stack(pos_embeds, dim=0)  # (channels, h, w)
     return pos_embed
 
+
+class DummyIdentity(nn.Module):
+    def __init__(self, in_channels):
+        super(DummyIdentity, self).__init__()
+        self.in_channels = in_channels
+    
+    def forward(self, x):
+        return x
+
 class TransformerBlock(nn.Module):
     def __init__(self, d_model, in_channels, dropout=0.0, h=32, w=32, kernel_size=8):
         super(TransformerBlock, self).__init__()
@@ -78,7 +87,7 @@ class SSMBlock(nn.Module):
         # elif model == "s5":
         #     self.block = partial(S5, d_state=d_state)
         else:
-            self.block = nn.Identity()
+            self.block = DummyIdentity()
         
         if model in ["s4", "s4d", "mamba"]:
             indices = torch.zeros(h * w, dtype=torch.long)
