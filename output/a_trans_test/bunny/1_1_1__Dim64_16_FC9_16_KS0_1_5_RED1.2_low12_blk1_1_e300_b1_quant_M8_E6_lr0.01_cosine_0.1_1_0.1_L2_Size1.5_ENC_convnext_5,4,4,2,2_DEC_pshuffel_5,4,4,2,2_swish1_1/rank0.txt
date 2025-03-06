@@ -1,0 +1,109 @@
+VariantsA(
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+  (encoder): Sequential(
+    (0): TransformerBlock(
+      (inflation): Conv2d(3, 16, kernel_size=(1, 1), stride=(1, 1))
+      (transformer): MultiheadAttention(
+        (out_proj): NonDynamicallyQuantizableLinear(in_features=16, out_features=16, bias=True)
+      )
+      (deflation): Conv2d(16, 3, kernel_size=(1, 1), stride=(1, 1))
+    )
+    (1): Conv2d(3, 8, kernel_size=(4, 4), stride=(4, 4))
+    (2): TransformerBlock(
+      (inflation): Conv2d(8, 16, kernel_size=(1, 1), stride=(1, 1))
+      (transformer): MultiheadAttention(
+        (out_proj): NonDynamicallyQuantizableLinear(in_features=16, out_features=16, bias=True)
+      )
+      (deflation): Conv2d(16, 8, kernel_size=(1, 1), stride=(1, 1))
+    )
+    (3): Conv2d(8, 8, kernel_size=(2, 2), stride=(2, 2))
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+VariantsA(
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+  (encoder): Sequential(
+    (0): TransformerBlock(
+      (inflation): Conv2d(3, 16, kernel_size=(1, 1), stride=(1, 1))
+      (transformer): MultiheadAttention(
+        (out_proj): NonDynamicallyQuantizableLinear(in_features=16, out_features=16, bias=True)
+      )
+      (deflation): Conv2d(16, 3, kernel_size=(1, 1), stride=(1, 1))
+    )
+    (1): Conv2d(3, 8, kernel_size=(4, 4), stride=(4, 4))
+    (2): TransformerBlock(
+      (inflation): Conv2d(8, 16, kernel_size=(1, 1), stride=(1, 1))
+      (transformer): MultiheadAttention(
+        (out_proj): NonDynamicallyQuantizableLinear(in_features=16, out_features=16, bias=True)
+      )
+      (deflation): Conv2d(16, 8, kernel_size=(1, 1), stride=(1, 1))
+    )
+    (3): Conv2d(8, 8, kernel_size=(2, 2), stride=(2, 2))
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+VariantsA(
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+  (encoder): Sequential(
+    (0): TransformerBlock(
+      (inflation): Conv2d(3, 16, kernel_size=(1, 1), stride=(1, 1))
+      (transformer): MultiheadAttention(
+        (out_proj): NonDynamicallyQuantizableLinear(in_features=16, out_features=16, bias=True)
+      )
+      (deflation): Conv2d(16, 3, kernel_size=(1, 1), stride=(1, 1))
+    )
+    (1): Conv2d(3, 8, kernel_size=(4, 4), stride=(4, 4))
+    (2): TransformerBlock(
+      (inflation): Conv2d(8, 16, kernel_size=(1, 1), stride=(1, 1))
+      (transformer): MultiheadAttention(
+        (out_proj): NonDynamicallyQuantizableLinear(in_features=16, out_features=16, bias=True)
+      )
+      (deflation): Conv2d(16, 8, kernel_size=(1, 1), stride=(1, 1))
+    )
+    (3): Conv2d(8, 8, kernel_size=(2, 2), stride=(2, 2))
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+[2025/03/05 16:36:50] Rank:None, Sample ID:0, Epoch[300/300], lr:0.00e+00 pred_PSNR: 20.4031
+[2025/03/05 16:36:52] Rank:None, Sample ID:1, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.1035
+[2025/03/05 16:36:54] Rank:None, Sample ID:2, Epoch[300/300], lr:0.00e+00 pred_PSNR: 20.3788
+[2025/03/05 16:36:56] Rank:None, Sample ID:3, Epoch[300/300], lr:0.00e+00 pred_PSNR: 20.8949
+[2025/03/05 16:36:58] Rank:None, Sample ID:4, Epoch[300/300], lr:0.00e+00 pred_PSNR: 25.2812
+final score: tensor([21.81])
+VariantsA(
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+  (encoder): Sequential(
+    (0): TransformerBlock(
+      (inflation): Conv2d(3, 16, kernel_size=(1, 1), stride=(1, 1))
+      (transformer): MultiheadAttention(
+        (out_proj): NonDynamicallyQuantizableLinear(in_features=16, out_features=16, bias=True)
+      )
+      (deflation): Conv2d(16, 3, kernel_size=(1, 1), stride=(1, 1))
+    )
+    (1): Conv2d(3, 8, kernel_size=(4, 4), stride=(4, 4))
+    (2): TransformerBlock(
+      (inflation): Conv2d(8, 16, kernel_size=(1, 1), stride=(1, 1))
+      (transformer): MultiheadAttention(
+        (out_proj): NonDynamicallyQuantizableLinear(in_features=16, out_features=16, bias=True)
+      )
+      (deflation): Conv2d(16, 8, kernel_size=(1, 1), stride=(1, 1))
+    )
+    (3): Conv2d(8, 8, kernel_size=(2, 2), stride=(2, 2))
+  )
+)
+Encoder_0.02M_Decoder_0.0M_Total_0.0M
+[2025/03/05 16:45:08] Rank:None, Sample ID:0, Epoch[300/300], lr:0.00e+00 pred_PSNR: 20.7016
+[2025/03/05 16:45:10] Rank:None, Sample ID:1, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.8809
+[2025/03/05 16:45:12] Rank:None, Sample ID:2, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.3464

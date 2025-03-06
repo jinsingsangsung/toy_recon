@@ -1,0 +1,37 @@
+HiPPOConvPure(
+  (encoder): Sequential(
+    (0): HippoConv2d(
+      3, 3, kernel_size=(32, 32), stride=(32, 32)
+      (linear): Linear(in_features=16, out_features=1, bias=True)
+    )
+    (1): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.01M_Decoder_0.0M_Total_0.0M
+[2025/03/03 08:01:31] Rank:None, Sample ID:0, Epoch[300/300], lr:0.00e+00 pred_PSNR: 26.4477
+[2025/03/03 08:01:31] Rank:None, Sample ID:1, Epoch[300/300], lr:0.00e+00 pred_PSNR: 29.3125
+[2025/03/03 08:01:32] Rank:None, Sample ID:2, Epoch[300/300], lr:0.00e+00 pred_PSNR: 27.3005
+[2025/03/03 08:01:33] Rank:None, Sample ID:3, Epoch[300/300], lr:0.00e+00 pred_PSNR: 25.4066
+[2025/03/03 08:01:33] Rank:None, Sample ID:4, Epoch[300/300], lr:0.00e+00 pred_PSNR: 33.2755
+[2025/03/03 08:01:34] Rank:None, Sample ID:5, Epoch[300/300], lr:0.00e+00 pred_PSNR: 26.2648
+[2025/03/03 08:01:35] Rank:None, Sample ID:6, Epoch[300/300], lr:0.00e+00 pred_PSNR: 27.3035
+HiPPOConvPure(
+  (encoder): Sequential(
+    (0): HippoConv2d(
+      3, 3, kernel_size=(32, 32), stride=(32, 32)
+      (linear): Linear(in_features=16, out_features=1, bias=True)
+    )
+    (1): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.01M_Decoder_0.0M_Total_0.0M
+[2025/03/03 08:05:11] Rank:None, Sample ID:0, Epoch[300/300], lr:0.00e+00 pred_PSNR: 20.9872
+[2025/03/03 08:05:11] Rank:None, Sample ID:1, Epoch[300/300], lr:0.00e+00 pred_PSNR: 18.6133

@@ -1,0 +1,27 @@
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv9(
+      (B_tildes): ParameterList()
+      (x_proj_0): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_0): Linear(in_features=16, out_features=16, bias=True)
+      (x_proj_1): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_1): Linear(in_features=16, out_features=16, bias=True)
+      (C_proj): Conv2d(3, 128, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.03M_Decoder_0.0M_Total_0.0M
+[2025/03/02 07:52:46] Rank:None, Sample ID:0, Epoch[1/1], lr:0.00e+00 pred_PSNR: 7.39
+[2025/03/02 07:52:47] Rank:None, Sample ID:1, Epoch[1/1], lr:0.00e+00 pred_PSNR: 5.49
+[2025/03/02 07:52:48] Rank:None, Sample ID:2, Epoch[1/1], lr:0.00e+00 pred_PSNR: 6.8
+[2025/03/02 07:52:48] Rank:None, Sample ID:3, Epoch[1/1], lr:0.00e+00 pred_PSNR: 7.11
+[2025/03/02 07:52:49] Rank:None, Sample ID:4, Epoch[1/1], lr:0.00e+00 pred_PSNR: 3.08
+[2025/03/02 07:52:49] Rank:None, Sample ID:5, Epoch[1/1], lr:0.00e+00 pred_PSNR: 6.32
+[2025/03/02 07:52:50] Rank:None, Sample ID:6, Epoch[1/1], lr:0.00e+00 pred_PSNR: 5.47
+[2025/03/02 07:52:50] Rank:None, Sample ID:7, Epoch[1/1], lr:0.00e+00 pred_PSNR: 7.61
+[2025/03/02 07:52:51] Rank:None, Sample ID:8, Epoch[1/1], lr:0.00e+00 pred_PSNR: 5.47
+[2025/03/02 07:52:52] Rank:None, Sample ID:9, Epoch[1/1], lr:0.00e+00 pred_PSNR: 6.64

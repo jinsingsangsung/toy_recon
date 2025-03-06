@@ -1,0 +1,1144 @@
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv9(
+      (B_tildes): ParameterList()
+      (x_proj_0): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_0): Linear(in_features=16, out_features=16, bias=True)
+      (x_proj_1): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_1): Linear(in_features=16, out_features=16, bias=True)
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+[2025/03/03 05:53:31] Rank:None, Sample ID:0, Epoch[300/300], lr:0.00e+00 pred_PSNR: 20.8152
+[2025/03/03 05:53:33] Rank:None, Sample ID:1, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.408
+[2025/03/03 05:53:35] Rank:None, Sample ID:2, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.4565
+[2025/03/03 05:53:36] Rank:None, Sample ID:3, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.9479
+[2025/03/03 05:53:38] Rank:None, Sample ID:4, Epoch[300/300], lr:0.00e+00 pred_PSNR: 30.0931
+[2025/03/03 05:53:40] Rank:None, Sample ID:5, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.1602
+[2025/03/03 05:53:41] Rank:None, Sample ID:6, Epoch[300/300], lr:0.00e+00 pred_PSNR: 25.7412
+[2025/03/03 05:53:43] Rank:None, Sample ID:7, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.1223
+[2025/03/03 05:53:44] Rank:None, Sample ID:8, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.8085
+[2025/03/03 05:53:46] Rank:None, Sample ID:9, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.3089
+[2025/03/03 05:53:48] Rank:None, Sample ID:10, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.7942
+[2025/03/03 05:53:49] Rank:None, Sample ID:11, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.6576
+[2025/03/03 05:53:51] Rank:None, Sample ID:12, Epoch[300/300], lr:0.00e+00 pred_PSNR: 20.9129
+[2025/03/03 05:53:53] Rank:None, Sample ID:13, Epoch[300/300], lr:0.00e+00 pred_PSNR: 28.5965
+[2025/03/03 05:53:54] Rank:None, Sample ID:14, Epoch[300/300], lr:0.00e+00 pred_PSNR: 18.2674
+[2025/03/03 05:53:56] Rank:None, Sample ID:15, Epoch[300/300], lr:0.00e+00 pred_PSNR: 26.2787
+[2025/03/03 05:53:57] Rank:None, Sample ID:16, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.3035
+[2025/03/03 05:53:59] Rank:None, Sample ID:17, Epoch[300/300], lr:0.00e+00 pred_PSNR: 20.6632
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv9(
+      (B_tildes): ParameterList()
+      (x_proj_0): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_0): Linear(in_features=16, out_features=16, bias=True)
+      (x_proj_1): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_1): Linear(in_features=16, out_features=16, bias=True)
+      (C_proj): Conv2d(3, 16, kernel_size=(1, 1), stride=(1, 1))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv9(
+      (B_tildes): ParameterList()
+      (x_proj_0): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_0): Linear(in_features=16, out_features=16, bias=True)
+      (x_proj_1): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_1): Linear(in_features=16, out_features=16, bias=True)
+      (C_proj): Conv2d(3, 16, kernel_size=(1, 1), stride=(1, 1))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv9(
+      (B_tildes): ParameterList()
+      (x_proj_0): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_0): Linear(in_features=16, out_features=16, bias=True)
+      (x_proj_1): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_1): Linear(in_features=16, out_features=16, bias=True)
+      (C_proj): Conv2d(3, 16, kernel_size=(1, 1), stride=(1, 1))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv9(
+      (B_tildes): ParameterList()
+      (x_proj_0): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_0): Linear(in_features=16, out_features=16, bias=True)
+      (x_proj_1): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_1): Linear(in_features=16, out_features=16, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(1, 1), stride=(1, 1))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+[2025/03/03 06:11:41] Rank:None, Sample ID:0, Epoch[300/300], lr:0.00e+00 pred_PSNR: 20.7551
+[2025/03/03 06:11:43] Rank:None, Sample ID:1, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.9065
+[2025/03/03 06:11:46] Rank:None, Sample ID:2, Epoch[300/300], lr:0.00e+00 pred_PSNR: 18.8512
+[2025/03/03 06:11:48] Rank:None, Sample ID:3, Epoch[300/300], lr:0.00e+00 pred_PSNR: 20.8457
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv9(
+      (B_tildes): ParameterList()
+      (x_proj_0): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_0): Linear(in_features=16, out_features=16, bias=True)
+      (x_proj_1): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_1): Linear(in_features=16, out_features=16, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(1, 1), stride=(1, 1))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv9(
+      (B_tildes): ParameterList()
+      (x_proj_0): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_0): Linear(in_features=16, out_features=16, bias=True)
+      (x_proj_1): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_1): Linear(in_features=16, out_features=16, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv9(
+      (B_tildes): ParameterList()
+      (x_proj_0): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_0): Linear(in_features=16, out_features=16, bias=True)
+      (x_proj_1): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_1): Linear(in_features=16, out_features=16, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv9(
+      (B_tildes): ParameterList()
+      (x_proj_0): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_0): Linear(in_features=16, out_features=16, bias=True)
+      (x_proj_1): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_1): Linear(in_features=16, out_features=16, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+[2025/03/03 06:19:33] Rank:None, Sample ID:0, Epoch[300/300], lr:0.00e+00 pred_PSNR: 20.7526
+[2025/03/03 06:19:35] Rank:None, Sample ID:1, Epoch[300/300], lr:0.00e+00 pred_PSNR: 26.5948
+[2025/03/03 06:19:37] Rank:None, Sample ID:2, Epoch[300/300], lr:0.00e+00 pred_PSNR: 27.3568
+[2025/03/03 06:19:39] Rank:None, Sample ID:3, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.8499
+[2025/03/03 06:19:41] Rank:None, Sample ID:4, Epoch[300/300], lr:0.00e+00 pred_PSNR: 29.7552
+[2025/03/03 06:19:42] Rank:None, Sample ID:5, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.9891
+[2025/03/03 06:19:44] Rank:None, Sample ID:6, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.4172
+[2025/03/03 06:19:46] Rank:None, Sample ID:7, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.5784
+[2025/03/03 06:19:47] Rank:None, Sample ID:8, Epoch[300/300], lr:0.00e+00 pred_PSNR: 26.8576
+[2025/03/03 06:19:49] Rank:None, Sample ID:9, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.1282
+[2025/03/03 06:19:51] Rank:None, Sample ID:10, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.2654
+[2025/03/03 06:19:53] Rank:None, Sample ID:11, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.5367
+[2025/03/03 06:19:54] Rank:None, Sample ID:12, Epoch[300/300], lr:0.00e+00 pred_PSNR: 20.5409
+[2025/03/03 06:19:56] Rank:None, Sample ID:13, Epoch[300/300], lr:0.00e+00 pred_PSNR: 28.417
+[2025/03/03 06:19:58] Rank:None, Sample ID:14, Epoch[300/300], lr:0.00e+00 pred_PSNR: 16.0791
+[2025/03/03 06:19:59] Rank:None, Sample ID:15, Epoch[300/300], lr:0.00e+00 pred_PSNR: 27.4678
+[2025/03/03 06:20:01] Rank:None, Sample ID:16, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.2239
+[2025/03/03 06:20:03] Rank:None, Sample ID:17, Epoch[300/300], lr:0.00e+00 pred_PSNR: 20.5939
+[2025/03/03 06:20:05] Rank:None, Sample ID:18, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.8017
+[2025/03/03 06:20:06] Rank:None, Sample ID:19, Epoch[300/300], lr:0.00e+00 pred_PSNR: 16.2213
+[2025/03/03 06:20:08] Rank:None, Sample ID:20, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.8066
+[2025/03/03 06:20:10] Rank:None, Sample ID:21, Epoch[300/300], lr:0.00e+00 pred_PSNR: 20.8665
+[2025/03/03 06:20:12] Rank:None, Sample ID:22, Epoch[300/300], lr:0.00e+00 pred_PSNR: 20.6397
+[2025/03/03 06:20:13] Rank:None, Sample ID:23, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.3092
+[2025/03/03 06:20:15] Rank:None, Sample ID:24, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.1254
+[2025/03/03 06:20:17] Rank:None, Sample ID:25, Epoch[300/300], lr:0.00e+00 pred_PSNR: 26.4363
+[2025/03/03 06:20:18] Rank:None, Sample ID:26, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.1414
+[2025/03/03 06:20:20] Rank:None, Sample ID:27, Epoch[300/300], lr:0.00e+00 pred_PSNR: 20.2796
+[2025/03/03 06:20:22] Rank:None, Sample ID:28, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.6992
+[2025/03/03 06:20:24] Rank:None, Sample ID:29, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.5848
+[2025/03/03 06:20:25] Rank:None, Sample ID:30, Epoch[300/300], lr:0.00e+00 pred_PSNR: 18.5867
+[2025/03/03 06:20:27] Rank:None, Sample ID:31, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.2087
+[2025/03/03 06:20:29] Rank:None, Sample ID:32, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.1124
+[2025/03/03 06:20:31] Rank:None, Sample ID:33, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.9252
+[2025/03/03 06:20:32] Rank:None, Sample ID:34, Epoch[300/300], lr:0.00e+00 pred_PSNR: 19.9278
+[2025/03/03 06:20:34] Rank:None, Sample ID:35, Epoch[300/300], lr:0.00e+00 pred_PSNR: 28.4008
+[2025/03/03 06:20:36] Rank:None, Sample ID:36, Epoch[300/300], lr:0.00e+00 pred_PSNR: 17.491
+[2025/03/03 06:20:37] Rank:None, Sample ID:37, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.827
+[2025/03/03 06:20:39] Rank:None, Sample ID:38, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.6454
+[2025/03/03 06:20:41] Rank:None, Sample ID:39, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.5481
+[2025/03/03 06:20:43] Rank:None, Sample ID:40, Epoch[300/300], lr:0.00e+00 pred_PSNR: 25.3783
+[2025/03/03 06:20:44] Rank:None, Sample ID:41, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.2295
+[2025/03/03 06:20:46] Rank:None, Sample ID:42, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.2671
+[2025/03/03 06:20:48] Rank:None, Sample ID:43, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.9811
+[2025/03/03 06:20:49] Rank:None, Sample ID:44, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.7932
+[2025/03/03 06:20:51] Rank:None, Sample ID:45, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.0848
+[2025/03/03 06:20:53] Rank:None, Sample ID:46, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.0381
+[2025/03/03 06:20:55] Rank:None, Sample ID:47, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.8635
+[2025/03/03 06:20:56] Rank:None, Sample ID:48, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.0418
+[2025/03/03 06:20:58] Rank:None, Sample ID:49, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.4709
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv9(
+      (B_tildes): ParameterList()
+      (x_proj_0): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_0): Linear(in_features=16, out_features=16, bias=True)
+      (x_proj_1): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_1): Linear(in_features=16, out_features=16, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv9(
+      (B_tildes): ParameterList()
+      (x_proj_0): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_0): Linear(in_features=16, out_features=16, bias=True)
+      (x_proj_1): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_1): Linear(in_features=16, out_features=16, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv9(
+      (B_tildes): ParameterList()
+      (x_proj_0): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_0): Linear(in_features=16, out_features=16, bias=True)
+      (x_proj_1): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_1): Linear(in_features=16, out_features=16, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+[2025/03/03 07:13:05] Rank:None, Sample ID:0, Epoch[300/300], lr:0.00e+00 pred_PSNR: 20.7482
+[2025/03/03 07:13:07] Rank:None, Sample ID:1, Epoch[300/300], lr:0.00e+00 pred_PSNR: 26.2081
+[2025/03/03 07:13:08] Rank:None, Sample ID:2, Epoch[300/300], lr:0.00e+00 pred_PSNR: 27.3265
+[2025/03/03 07:13:10] Rank:None, Sample ID:3, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.9711
+[2025/03/03 07:13:12] Rank:None, Sample ID:4, Epoch[300/300], lr:0.00e+00 pred_PSNR: 30.2985
+[2025/03/03 07:13:13] Rank:None, Sample ID:5, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.2719
+[2025/03/03 07:13:15] Rank:None, Sample ID:6, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.7696
+[2025/03/03 07:13:16] Rank:None, Sample ID:7, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.5802
+[2025/03/03 07:13:18] Rank:None, Sample ID:8, Epoch[300/300], lr:0.00e+00 pred_PSNR: 29.8425
+[2025/03/03 07:13:19] Rank:None, Sample ID:9, Epoch[300/300], lr:0.00e+00 pred_PSNR: 25.2593
+[2025/03/03 07:13:21] Rank:None, Sample ID:10, Epoch[300/300], lr:0.00e+00 pred_PSNR: 26.7056
+[2025/03/03 07:13:23] Rank:None, Sample ID:11, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.3929
+[2025/03/03 07:13:24] Rank:None, Sample ID:12, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.4894
+[2025/03/03 07:13:26] Rank:None, Sample ID:13, Epoch[300/300], lr:0.00e+00 pred_PSNR: 28.4434
+[2025/03/03 07:13:27] Rank:None, Sample ID:14, Epoch[300/300], lr:0.00e+00 pred_PSNR: 15.9743
+[2025/03/03 07:13:29] Rank:None, Sample ID:15, Epoch[300/300], lr:0.00e+00 pred_PSNR: 26.7327
+[2025/03/03 07:13:30] Rank:None, Sample ID:16, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.855
+[2025/03/03 07:13:32] Rank:None, Sample ID:17, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.7358
+[2025/03/03 07:13:33] Rank:None, Sample ID:18, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.4573
+[2025/03/03 07:13:35] Rank:None, Sample ID:19, Epoch[300/300], lr:0.00e+00 pred_PSNR: 18.7395
+[2025/03/03 07:13:37] Rank:None, Sample ID:20, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.3648
+[2025/03/03 07:13:38] Rank:None, Sample ID:21, Epoch[300/300], lr:0.00e+00 pred_PSNR: 20.8602
+[2025/03/03 07:13:40] Rank:None, Sample ID:22, Epoch[300/300], lr:0.00e+00 pred_PSNR: 20.4011
+[2025/03/03 07:13:41] Rank:None, Sample ID:23, Epoch[300/300], lr:0.00e+00 pred_PSNR: 25.1522
+[2025/03/03 07:13:43] Rank:None, Sample ID:24, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.9142
+[2025/03/03 07:13:44] Rank:None, Sample ID:25, Epoch[300/300], lr:0.00e+00 pred_PSNR: 25.6664
+[2025/03/03 07:13:46] Rank:None, Sample ID:26, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.6784
+[2025/03/03 07:13:47] Rank:None, Sample ID:27, Epoch[300/300], lr:0.00e+00 pred_PSNR: 18.9801
+[2025/03/03 07:13:49] Rank:None, Sample ID:28, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.2091
+[2025/03/03 07:13:51] Rank:None, Sample ID:29, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.2092
+[2025/03/03 07:13:52] Rank:None, Sample ID:30, Epoch[300/300], lr:0.00e+00 pred_PSNR: 20.5828
+[2025/03/03 07:13:54] Rank:None, Sample ID:31, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.7695
+[2025/03/03 07:13:55] Rank:None, Sample ID:32, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.0075
+[2025/03/03 07:13:57] Rank:None, Sample ID:33, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.7589
+[2025/03/03 07:13:58] Rank:None, Sample ID:34, Epoch[300/300], lr:0.00e+00 pred_PSNR: 19.832
+[2025/03/03 07:14:00] Rank:None, Sample ID:35, Epoch[300/300], lr:0.00e+00 pred_PSNR: 28.5257
+[2025/03/03 07:14:02] Rank:None, Sample ID:36, Epoch[300/300], lr:0.00e+00 pred_PSNR: 18.4357
+[2025/03/03 07:14:03] Rank:None, Sample ID:37, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.1686
+[2025/03/03 07:14:05] Rank:None, Sample ID:38, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.6355
+[2025/03/03 07:14:06] Rank:None, Sample ID:39, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.2828
+[2025/03/03 07:14:08] Rank:None, Sample ID:40, Epoch[300/300], lr:0.00e+00 pred_PSNR: 26.2896
+[2025/03/03 07:14:09] Rank:None, Sample ID:41, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.6743
+[2025/03/03 07:14:11] Rank:None, Sample ID:42, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.3194
+[2025/03/03 07:14:12] Rank:None, Sample ID:43, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.828
+[2025/03/03 07:14:14] Rank:None, Sample ID:44, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.7297
+[2025/03/03 07:14:16] Rank:None, Sample ID:45, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.9921
+[2025/03/03 07:14:17] Rank:None, Sample ID:46, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.0152
+[2025/03/03 07:14:19] Rank:None, Sample ID:47, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.0392
+[2025/03/03 07:14:20] Rank:None, Sample ID:48, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.2898
+[2025/03/03 07:14:22] Rank:None, Sample ID:49, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.6801
+[2025/03/03 07:14:23] Rank:None, Sample ID:50, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.3808
+[2025/03/03 07:14:25] Rank:None, Sample ID:51, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.6677
+[2025/03/03 07:14:27] Rank:None, Sample ID:52, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.994
+[2025/03/03 07:14:28] Rank:None, Sample ID:53, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.2061
+[2025/03/03 07:14:30] Rank:None, Sample ID:54, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.0902
+[2025/03/03 07:14:31] Rank:None, Sample ID:55, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.4652
+[2025/03/03 07:14:33] Rank:None, Sample ID:56, Epoch[300/300], lr:0.00e+00 pred_PSNR: 28.7207
+[2025/03/03 07:14:34] Rank:None, Sample ID:57, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.3182
+[2025/03/03 07:14:36] Rank:None, Sample ID:58, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.3706
+[2025/03/03 07:14:37] Rank:None, Sample ID:59, Epoch[300/300], lr:0.00e+00 pred_PSNR: 28.1383
+[2025/03/03 07:14:39] Rank:None, Sample ID:60, Epoch[300/300], lr:0.00e+00 pred_PSNR: 20.7363
+[2025/03/03 07:14:41] Rank:None, Sample ID:61, Epoch[300/300], lr:0.00e+00 pred_PSNR: 25.0315
+[2025/03/03 07:14:42] Rank:None, Sample ID:62, Epoch[300/300], lr:0.00e+00 pred_PSNR: 20.4486
+[2025/03/03 07:14:44] Rank:None, Sample ID:63, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.3842
+[2025/03/03 07:14:45] Rank:None, Sample ID:64, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.1141
+[2025/03/03 07:14:47] Rank:None, Sample ID:65, Epoch[300/300], lr:0.00e+00 pred_PSNR: 19.8378
+[2025/03/03 07:14:48] Rank:None, Sample ID:66, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.9474
+[2025/03/03 07:14:50] Rank:None, Sample ID:67, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.7223
+[2025/03/03 07:14:52] Rank:None, Sample ID:68, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.6406
+[2025/03/03 07:14:53] Rank:None, Sample ID:69, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.1986
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv9(
+      (B_tildes): ParameterList()
+      (x_proj_0): Linear(in_features=8, out_features=17, bias=True)
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Linear(in_features=8, out_features=17, bias=True)
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv9(
+      (B_tildes): ParameterList()
+      (x_proj_0): Linear(in_features=8, out_features=17, bias=True)
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Linear(in_features=8, out_features=17, bias=True)
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv9(
+      (B_tildes): ParameterList()
+      (x_proj_0): Linear(in_features=8, out_features=17, bias=True)
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Linear(in_features=8, out_features=17, bias=True)
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv9(
+      (B_tildes): ParameterList()
+      (x_proj_0): Linear(in_features=8, out_features=17, bias=True)
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Linear(in_features=8, out_features=17, bias=True)
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+[2025/03/03 09:02:17] Rank:None, Sample ID:0, Epoch[300/300], lr:0.00e+00 pred_PSNR: 20.8082
+[2025/03/03 09:02:20] Rank:None, Sample ID:1, Epoch[300/300], lr:0.00e+00 pred_PSNR: 27.7463
+[2025/03/03 09:02:22] Rank:None, Sample ID:2, Epoch[300/300], lr:0.00e+00 pred_PSNR: 27.7929
+[2025/03/03 09:02:24] Rank:None, Sample ID:3, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.6339
+[2025/03/03 09:02:26] Rank:None, Sample ID:4, Epoch[300/300], lr:0.00e+00 pred_PSNR: 29.3958
+[2025/03/03 09:02:28] Rank:None, Sample ID:5, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.1962
+[2025/03/03 09:02:30] Rank:None, Sample ID:6, Epoch[300/300], lr:0.00e+00 pred_PSNR: 26.0386
+[2025/03/03 09:02:32] Rank:None, Sample ID:7, Epoch[300/300], lr:0.00e+00 pred_PSNR: 25.0788
+[2025/03/03 09:02:34] Rank:None, Sample ID:8, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.6696
+[2025/03/03 09:02:36] Rank:None, Sample ID:9, Epoch[300/300], lr:0.00e+00 pred_PSNR: 25.2482
+[2025/03/03 09:02:37] Rank:None, Sample ID:10, Epoch[300/300], lr:0.00e+00 pred_PSNR: 25.0934
+[2025/03/03 09:02:40] Rank:None, Sample ID:11, Epoch[300/300], lr:0.00e+00 pred_PSNR: 25.5464
+[2025/03/03 09:02:42] Rank:None, Sample ID:12, Epoch[300/300], lr:0.00e+00 pred_PSNR: 20.8665
+[2025/03/03 09:02:44] Rank:None, Sample ID:13, Epoch[300/300], lr:0.00e+00 pred_PSNR: 28.5885
+[2025/03/03 09:02:46] Rank:None, Sample ID:14, Epoch[300/300], lr:0.00e+00 pred_PSNR: 20.9922
+[2025/03/03 09:02:48] Rank:None, Sample ID:15, Epoch[300/300], lr:0.00e+00 pred_PSNR: 26.9385
+[2025/03/03 09:02:50] Rank:None, Sample ID:16, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.943
+[2025/03/03 09:02:52] Rank:None, Sample ID:17, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.1818
+[2025/03/03 09:02:54] Rank:None, Sample ID:18, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.6123
+[2025/03/03 09:02:56] Rank:None, Sample ID:19, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.2866
+[2025/03/03 09:02:58] Rank:None, Sample ID:20, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.2674
+[2025/03/03 09:02:59] Rank:None, Sample ID:21, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.0231
+[2025/03/03 09:03:01] Rank:None, Sample ID:22, Epoch[300/300], lr:0.00e+00 pred_PSNR: 20.9464
+[2025/03/03 09:03:03] Rank:None, Sample ID:23, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.6047
+[2025/03/03 09:03:05] Rank:None, Sample ID:24, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.5016
+[2025/03/03 09:03:07] Rank:None, Sample ID:25, Epoch[300/300], lr:0.00e+00 pred_PSNR: 25.7781
+[2025/03/03 09:03:10] Rank:None, Sample ID:26, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.3652
+[2025/03/03 09:03:12] Rank:None, Sample ID:27, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.2372
+[2025/03/03 09:03:14] Rank:None, Sample ID:28, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.9852
+[2025/03/03 09:03:16] Rank:None, Sample ID:29, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.7635
+[2025/03/03 09:03:17] Rank:None, Sample ID:30, Epoch[300/300], lr:0.00e+00 pred_PSNR: 20.9641
+[2025/03/03 09:03:19] Rank:None, Sample ID:31, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.5766
+[2025/03/03 09:03:21] Rank:None, Sample ID:32, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.7187
+[2025/03/03 09:03:23] Rank:None, Sample ID:33, Epoch[300/300], lr:0.00e+00 pred_PSNR: 26.573
+[2025/03/03 09:03:25] Rank:None, Sample ID:34, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.2436
+[2025/03/03 09:03:27] Rank:None, Sample ID:35, Epoch[300/300], lr:0.00e+00 pred_PSNR: 29.0014
+[2025/03/03 09:03:29] Rank:None, Sample ID:36, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.1391
+[2025/03/03 09:03:31] Rank:None, Sample ID:37, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.6019
+[2025/03/03 09:03:33] Rank:None, Sample ID:38, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.0473
+[2025/03/03 09:03:36] Rank:None, Sample ID:39, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.3517
+[2025/03/03 09:03:38] Rank:None, Sample ID:40, Epoch[300/300], lr:0.00e+00 pred_PSNR: 26.5313
+[2025/03/03 09:03:40] Rank:None, Sample ID:41, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.3566
+[2025/03/03 09:03:42] Rank:None, Sample ID:42, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.6849
+[2025/03/03 09:03:44] Rank:None, Sample ID:43, Epoch[300/300], lr:0.00e+00 pred_PSNR: 25.0393
+[2025/03/03 09:03:46] Rank:None, Sample ID:44, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.256
+[2025/03/03 09:03:48] Rank:None, Sample ID:45, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.608
+[2025/03/03 09:03:50] Rank:None, Sample ID:46, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.3419
+[2025/03/03 09:03:52] Rank:None, Sample ID:47, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.8143
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv9(
+      (B_tildes): ParameterList()
+      (x_proj_0): Linear(in_features=16, out_features=17, bias=True)
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Linear(in_features=16, out_features=17, bias=True)
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(16, 16), stride=(16, 16))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.01M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(16,), stride=(16,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(16,), stride=(16,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(16, 16), stride=(16, 16))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.01M_Decoder_0.0M_Total_0.0M
+[2025/03/03 09:04:40] Rank:None, Sample ID:0, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.2595
+[2025/03/03 09:04:42] Rank:None, Sample ID:1, Epoch[300/300], lr:0.00e+00 pred_PSNR: 26.8902
+[2025/03/03 09:04:44] Rank:None, Sample ID:2, Epoch[300/300], lr:0.00e+00 pred_PSNR: 27.734
+[2025/03/03 09:04:46] Rank:None, Sample ID:3, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.8456
+[2025/03/03 09:04:48] Rank:None, Sample ID:4, Epoch[300/300], lr:0.00e+00 pred_PSNR: 29.0348
+[2025/03/03 09:04:50] Rank:None, Sample ID:5, Epoch[300/300], lr:0.00e+00 pred_PSNR: 26.3353
+[2025/03/03 09:04:52] Rank:None, Sample ID:6, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.917
+[2025/03/03 09:04:54] Rank:None, Sample ID:7, Epoch[300/300], lr:0.00e+00 pred_PSNR: 25.6499
+[2025/03/03 09:04:57] Rank:None, Sample ID:8, Epoch[300/300], lr:0.00e+00 pred_PSNR: 26.6322
+[2025/03/03 09:04:58] Rank:None, Sample ID:9, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.3314
+[2025/03/03 09:05:00] Rank:None, Sample ID:10, Epoch[300/300], lr:0.00e+00 pred_PSNR: 26.5531
+[2025/03/03 09:05:02] Rank:None, Sample ID:11, Epoch[300/300], lr:0.00e+00 pred_PSNR: 26.2855
+[2025/03/03 09:05:04] Rank:None, Sample ID:12, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.5835
+[2025/03/03 09:05:06] Rank:None, Sample ID:13, Epoch[300/300], lr:0.00e+00 pred_PSNR: 28.3467
+[2025/03/03 09:05:07] Rank:None, Sample ID:14, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.4874
+[2025/03/03 09:05:09] Rank:None, Sample ID:15, Epoch[300/300], lr:0.00e+00 pred_PSNR: 27.3591
+[2025/03/03 09:05:11] Rank:None, Sample ID:16, Epoch[300/300], lr:0.00e+00 pred_PSNR: 25.8728
+[2025/03/03 09:05:13] Rank:None, Sample ID:17, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.6917
+[2025/03/03 09:05:15] Rank:None, Sample ID:18, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.3183
+[2025/03/03 09:05:18] Rank:None, Sample ID:19, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.7766
+[2025/03/03 09:05:20] Rank:None, Sample ID:20, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.6623
+[2025/03/03 09:05:22] Rank:None, Sample ID:21, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.7123
+[2025/03/03 09:05:24] Rank:None, Sample ID:22, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.2971
+[2025/03/03 09:05:26] Rank:None, Sample ID:23, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.5463
+[2025/03/03 09:05:27] Rank:None, Sample ID:24, Epoch[300/300], lr:0.00e+00 pred_PSNR: 26.3592
+[2025/03/03 09:05:29] Rank:None, Sample ID:25, Epoch[300/300], lr:0.00e+00 pred_PSNR: 25.5372
+[2025/03/03 09:05:31] Rank:None, Sample ID:26, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.2575
+[2025/03/03 09:05:33] Rank:None, Sample ID:27, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.8571
+[2025/03/03 09:05:35] Rank:None, Sample ID:28, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.2548
+[2025/03/03 09:05:37] Rank:None, Sample ID:29, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.8335
+[2025/03/03 09:05:38] Rank:None, Sample ID:30, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.7805
+[2025/03/03 09:05:40] Rank:None, Sample ID:31, Epoch[300/300], lr:0.00e+00 pred_PSNR: 25.0428
+[2025/03/03 09:05:43] Rank:None, Sample ID:32, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.6231
+[2025/03/03 09:05:45] Rank:None, Sample ID:33, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.2736
+[2025/03/03 09:05:47] Rank:None, Sample ID:34, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.3318
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(16,), stride=(16,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(16,), stride=(16,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(3, 8, kernel_size=(16, 16), stride=(16, 16))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.01M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(16,), stride=(16,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(16,), stride=(16,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(16, 8, kernel_size=(1, 1), stride=(1, 1))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(16,), stride=(16,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(16,), stride=(16,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(16, 8, kernel_size=(1, 1), stride=(1, 1))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+[2025/03/03 09:19:05] Rank:None, Sample ID:0, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.7729
+[2025/03/03 09:19:07] Rank:None, Sample ID:1, Epoch[300/300], lr:0.00e+00 pred_PSNR: 26.0147
+[2025/03/03 09:19:08] Rank:None, Sample ID:2, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.4708
+[2025/03/03 09:19:10] Rank:None, Sample ID:3, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.0224
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(16,), stride=(16,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(16,), stride=(16,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(16, 8, kernel_size=(1, 1), stride=(1, 1))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(16,), stride=(16,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(16,), stride=(16,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(16, 8, kernel_size=(1, 1), stride=(1, 1))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(16,), stride=(16,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(16,), stride=(16,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(16, 8, kernel_size=(1, 1), stride=(1, 1))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+[2025/03/03 09:20:54] Rank:None, Sample ID:0, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.7729
+[2025/03/03 09:20:55] Rank:None, Sample ID:1, Epoch[300/300], lr:0.00e+00 pred_PSNR: 26.0148
+[2025/03/03 09:20:57] Rank:None, Sample ID:2, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.471
+[2025/03/03 09:20:59] Rank:None, Sample ID:3, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.0225
+[2025/03/03 09:21:00] Rank:None, Sample ID:4, Epoch[300/300], lr:0.00e+00 pred_PSNR: 30.1916
+[2025/03/03 09:21:02] Rank:None, Sample ID:5, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.7437
+[2025/03/03 09:21:04] Rank:None, Sample ID:6, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.5485
+[2025/03/03 09:21:05] Rank:None, Sample ID:7, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.7221
+[2025/03/03 09:21:07] Rank:None, Sample ID:8, Epoch[300/300], lr:0.00e+00 pred_PSNR: 28.9607
+[2025/03/03 09:21:08] Rank:None, Sample ID:9, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.2037
+[2025/03/03 09:21:10] Rank:None, Sample ID:10, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.9615
+[2025/03/03 09:21:12] Rank:None, Sample ID:11, Epoch[300/300], lr:0.00e+00 pred_PSNR: 25.0338
+[2025/03/03 09:21:13] Rank:None, Sample ID:12, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.8987
+[2025/03/03 09:21:15] Rank:None, Sample ID:13, Epoch[300/300], lr:0.00e+00 pred_PSNR: 27.9259
+[2025/03/03 09:21:16] Rank:None, Sample ID:14, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.1079
+[2025/03/03 09:21:18] Rank:None, Sample ID:15, Epoch[300/300], lr:0.00e+00 pred_PSNR: 26.5076
+[2025/03/03 09:21:20] Rank:None, Sample ID:16, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.1425
+[2025/03/03 09:21:21] Rank:None, Sample ID:17, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.3299
+[2025/03/03 09:21:23] Rank:None, Sample ID:18, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.2851
+[2025/03/03 09:21:24] Rank:None, Sample ID:19, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.223
+[2025/03/03 09:21:26] Rank:None, Sample ID:20, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.3085
+[2025/03/03 09:21:28] Rank:None, Sample ID:21, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.6408
+[2025/03/03 09:21:29] Rank:None, Sample ID:22, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.5762
+[2025/03/03 09:21:31] Rank:None, Sample ID:23, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.3778
+[2025/03/03 09:21:33] Rank:None, Sample ID:24, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.6387
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(16,), stride=(16,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(16,), stride=(16,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(16, 8, kernel_size=(1, 1), stride=(1, 1))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(16,), stride=(16,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(16,), stride=(16,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(16, 8, kernel_size=(1, 1), stride=(1, 1))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+[2025/03/03 09:22:59] Rank:None, Sample ID:0, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.3926
+[2025/03/03 09:23:00] Rank:None, Sample ID:1, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.3218
+[2025/03/03 09:23:02] Rank:None, Sample ID:2, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.9355
+[2025/03/03 09:23:03] Rank:None, Sample ID:3, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.8886
+[2025/03/03 09:23:05] Rank:None, Sample ID:4, Epoch[300/300], lr:0.00e+00 pred_PSNR: 29.4089
+[2025/03/03 09:23:06] Rank:None, Sample ID:5, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.1413
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(16,), stride=(16,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(16,), stride=(16,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(16, 8, kernel_size=(1, 1), stride=(1, 1))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+[2025/03/03 09:23:27] Rank:None, Sample ID:0, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.7729
+[2025/03/03 09:23:29] Rank:None, Sample ID:1, Epoch[300/300], lr:0.00e+00 pred_PSNR: 26.0147
+[2025/03/03 09:23:30] Rank:None, Sample ID:2, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.4708
+[2025/03/03 09:23:32] Rank:None, Sample ID:3, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.0223
+[2025/03/03 09:23:34] Rank:None, Sample ID:4, Epoch[300/300], lr:0.00e+00 pred_PSNR: 30.1916
+[2025/03/03 09:23:35] Rank:None, Sample ID:5, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.7437
+[2025/03/03 09:23:38] Rank:None, Sample ID:6, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.5496
+[2025/03/03 09:23:40] Rank:None, Sample ID:7, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.7222
+[2025/03/03 09:23:42] Rank:None, Sample ID:8, Epoch[300/300], lr:0.00e+00 pred_PSNR: 28.9607
+[2025/03/03 09:23:44] Rank:None, Sample ID:9, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.2026
+[2025/03/03 09:23:46] Rank:None, Sample ID:10, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.9615
+[2025/03/03 09:23:47] Rank:None, Sample ID:11, Epoch[300/300], lr:0.00e+00 pred_PSNR: 25.0339
+[2025/03/03 09:23:49] Rank:None, Sample ID:12, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.8985
+[2025/03/03 09:23:51] Rank:None, Sample ID:13, Epoch[300/300], lr:0.00e+00 pred_PSNR: 27.9258
+[2025/03/03 09:23:52] Rank:None, Sample ID:14, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.108
+[2025/03/03 09:23:54] Rank:None, Sample ID:15, Epoch[300/300], lr:0.00e+00 pred_PSNR: 26.5075
+[2025/03/03 09:23:56] Rank:None, Sample ID:16, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.1426
+[2025/03/03 09:23:57] Rank:None, Sample ID:17, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.3301
+[2025/03/03 09:23:59] Rank:None, Sample ID:18, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.2436
+[2025/03/03 09:24:01] Rank:None, Sample ID:19, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.223
+[2025/03/03 09:24:04] Rank:None, Sample ID:20, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.3077
+[2025/03/03 09:24:06] Rank:None, Sample ID:21, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.6395
+[2025/03/03 09:24:08] Rank:None, Sample ID:22, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.5762
+[2025/03/03 09:24:09] Rank:None, Sample ID:23, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.3778
+[2025/03/03 09:24:11] Rank:None, Sample ID:24, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.6388
+[2025/03/03 09:24:13] Rank:None, Sample ID:25, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.862
+[2025/03/03 09:24:14] Rank:None, Sample ID:26, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.8531
+[2025/03/03 09:24:16] Rank:None, Sample ID:27, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.3937
+[2025/03/03 09:24:18] Rank:None, Sample ID:28, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.5209
+[2025/03/03 09:24:19] Rank:None, Sample ID:29, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.1835
+[2025/03/03 09:24:21] Rank:None, Sample ID:30, Epoch[300/300], lr:0.00e+00 pred_PSNR: 20.5823
+[2025/03/03 09:24:22] Rank:None, Sample ID:31, Epoch[300/300], lr:0.00e+00 pred_PSNR: 25.6267
+[2025/03/03 09:24:24] Rank:None, Sample ID:32, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.3801
+[2025/03/03 09:24:26] Rank:None, Sample ID:33, Epoch[300/300], lr:0.00e+00 pred_PSNR: 23.9475
+[2025/03/03 09:24:28] Rank:None, Sample ID:34, Epoch[300/300], lr:0.00e+00 pred_PSNR: 25.103
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(16,), stride=(16,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(16,), stride=(16,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(16, 8, kernel_size=(1, 1), stride=(1, 1))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv10(
+      (B_tildes): ParameterList()
+      (x_proj_0): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_0): Linear(in_features=1, out_features=3, bias=True)
+      (x_proj_1): Conv1d(3, 17, kernel_size=(8,), stride=(8,))
+      (dt_proj_1): Linear(in_features=1, out_features=3, bias=True)
+      (C_proj): Conv2d(16, 8, kernel_size=(1, 1), stride=(1, 1))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M

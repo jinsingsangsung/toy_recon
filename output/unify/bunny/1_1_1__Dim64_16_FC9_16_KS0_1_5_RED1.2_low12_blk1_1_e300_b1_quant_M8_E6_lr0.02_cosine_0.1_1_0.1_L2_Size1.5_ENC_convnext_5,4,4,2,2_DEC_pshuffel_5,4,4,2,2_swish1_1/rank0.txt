@@ -1,0 +1,18 @@
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2d(
+      (B_tildes): ParameterList()
+      (act): ComplexActivations(
+        (act): GELU(approximate='none')
+      )
+      (C_second): ComplexConv2d(
+        (conv): Conv2d(6, 192, kernel_size=(1, 1), stride=(1, 1))
+      )
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(3, 3, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), padding_mode=replicate)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+[2025/02/11 16:36:23] Rank:None, Sample ID:0, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.92

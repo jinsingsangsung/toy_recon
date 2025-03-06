@@ -1,0 +1,3 @@
+# ninja log v5
+0	18735	1736828008152265593	/workspace/s4/extensions/kernels/build/temp.linux-x86_64-cpython-310/cauchy.o	c62c7941332aff93
+0	55299	1736828044699881446	/workspace/s4/extensions/kernels/build/temp.linux-x86_64-cpython-310/cauchy_cuda.o	97bfb9701b2f40f0

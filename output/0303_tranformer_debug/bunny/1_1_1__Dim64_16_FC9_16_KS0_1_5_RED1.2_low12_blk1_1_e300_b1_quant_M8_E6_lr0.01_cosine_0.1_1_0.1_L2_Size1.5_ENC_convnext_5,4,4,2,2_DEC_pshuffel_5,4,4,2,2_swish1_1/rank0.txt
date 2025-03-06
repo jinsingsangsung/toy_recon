@@ -1,0 +1,24 @@
+PureTransformer(
+  (transformer): Sequential(
+    (0): Conv2d(3, 48, kernel_size=(1, 1), stride=(1, 1))
+    (1): MultiheadAttention(
+      (out_proj): NonDynamicallyQuantizableLinear(in_features=48, out_features=48, bias=True)
+    )
+    (2): LayerNorm((48,), eps=1e-05, elementwise_affine=True)
+    (3): Sequential(
+      (0): Linear(in_features=48, out_features=196, bias=True)
+      (1): GELU(approximate='none')
+      (2): Linear(in_features=196, out_features=48, bias=True)
+    )
+    (4): LayerNorm((48,), eps=1e-05, elementwise_affine=True)
+    (5): Conv2d(48, 3, kernel_size=(1, 1), stride=(1, 1))
+  )
+  (encoder): Sequential(
+    (0): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M

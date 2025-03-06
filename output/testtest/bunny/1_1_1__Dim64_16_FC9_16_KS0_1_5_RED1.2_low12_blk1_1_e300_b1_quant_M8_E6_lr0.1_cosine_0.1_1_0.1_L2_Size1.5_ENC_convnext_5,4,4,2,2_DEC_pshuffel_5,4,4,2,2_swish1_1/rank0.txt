@@ -1,0 +1,71 @@
+S4DPure(
+  (s4dblock): S4D(
+    (kernel): S4DKernel()
+    (activation): GELU(approximate='none')
+    (dropout): Identity()
+    (output_linear): Sequential(
+      (0): Conv1d(3, 6, kernel_size=(1,), stride=(1,))
+      (1): GLU(dim=-2)
+    )
+  )
+  (encoder): Sequential(
+    (0): Conv2d(3, 8, kernel_size=(8, 8), stride=(8, 8))
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+  (proj): Conv2d(3, 6, kernel_size=(1, 1), stride=(1, 1))
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+[2025/01/30 08:24:48] Rank:None, Sample ID:0, Epoch[300/300], lr:0.00e+00 pred_PSNR: 12.99
+[2025/01/30 08:24:50] Rank:None, Sample ID:1, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.43
+[2025/01/30 08:24:52] Rank:None, Sample ID:2, Epoch[300/300], lr:0.00e+00 pred_PSNR: 13.07
+[2025/01/30 08:24:54] Rank:None, Sample ID:3, Epoch[300/300], lr:0.00e+00 pred_PSNR: 12.96
+[2025/01/30 08:24:55] Rank:None, Sample ID:4, Epoch[300/300], lr:0.00e+00 pred_PSNR: 19.49
+[2025/01/30 08:24:57] Rank:None, Sample ID:5, Epoch[300/300], lr:0.00e+00 pred_PSNR: 18.88
+[2025/01/30 08:24:59] Rank:None, Sample ID:6, Epoch[300/300], lr:0.00e+00 pred_PSNR: 17.54
+[2025/01/30 08:25:01] Rank:None, Sample ID:7, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.58
+[2025/01/30 08:25:02] Rank:None, Sample ID:8, Epoch[300/300], lr:0.00e+00 pred_PSNR: 27.8
+[2025/01/30 08:25:04] Rank:None, Sample ID:9, Epoch[300/300], lr:0.00e+00 pred_PSNR: 14.09
+[2025/01/30 08:25:06] Rank:None, Sample ID:10, Epoch[300/300], lr:0.00e+00 pred_PSNR: 26.84
+[2025/01/30 08:25:08] Rank:None, Sample ID:11, Epoch[300/300], lr:0.00e+00 pred_PSNR: 15.09
+[2025/01/30 08:25:10] Rank:None, Sample ID:12, Epoch[300/300], lr:0.00e+00 pred_PSNR: 18.17
+[2025/01/30 08:25:11] Rank:None, Sample ID:13, Epoch[300/300], lr:0.00e+00 pred_PSNR: 19.81
+[2025/01/30 08:25:13] Rank:None, Sample ID:14, Epoch[300/300], lr:0.00e+00 pred_PSNR: 14.08
+[2025/01/30 08:25:15] Rank:None, Sample ID:15, Epoch[300/300], lr:0.00e+00 pred_PSNR: 17.69
+[2025/01/30 08:25:17] Rank:None, Sample ID:16, Epoch[300/300], lr:0.00e+00 pred_PSNR: 28.55
+[2025/01/30 08:25:19] Rank:None, Sample ID:17, Epoch[300/300], lr:0.00e+00 pred_PSNR: 29.64
+[2025/01/30 08:25:20] Rank:None, Sample ID:18, Epoch[300/300], lr:0.00e+00 pred_PSNR: 18.2
+[2025/01/30 08:25:22] Rank:None, Sample ID:19, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.04
+[2025/01/30 08:25:24] Rank:None, Sample ID:20, Epoch[300/300], lr:0.00e+00 pred_PSNR: 33.98
+[2025/01/30 08:25:26] Rank:None, Sample ID:21, Epoch[300/300], lr:0.00e+00 pred_PSNR: 18.4
+[2025/01/30 08:25:27] Rank:None, Sample ID:22, Epoch[300/300], lr:0.00e+00 pred_PSNR: 19.72
+[2025/01/30 08:25:29] Rank:None, Sample ID:23, Epoch[300/300], lr:0.00e+00 pred_PSNR: 27.72
+[2025/01/30 08:25:31] Rank:None, Sample ID:24, Epoch[300/300], lr:0.00e+00 pred_PSNR: 17.68
+[2025/01/30 08:25:33] Rank:None, Sample ID:25, Epoch[300/300], lr:0.00e+00 pred_PSNR: 18.12
+[2025/01/30 08:25:35] Rank:None, Sample ID:26, Epoch[300/300], lr:0.00e+00 pred_PSNR: 13.89
+[2025/01/30 08:25:36] Rank:None, Sample ID:27, Epoch[300/300], lr:0.00e+00 pred_PSNR: 17.36
+[2025/01/30 08:25:38] Rank:None, Sample ID:28, Epoch[300/300], lr:0.00e+00 pred_PSNR: 26.71
+[2025/01/30 08:25:40] Rank:None, Sample ID:29, Epoch[300/300], lr:0.00e+00 pred_PSNR: 19.9
+[2025/01/30 08:25:42] Rank:None, Sample ID:30, Epoch[300/300], lr:0.00e+00 pred_PSNR: 16.48
+[2025/01/30 08:25:44] Rank:None, Sample ID:31, Epoch[300/300], lr:0.00e+00 pred_PSNR: 15.02
+[2025/01/30 08:25:45] Rank:None, Sample ID:32, Epoch[300/300], lr:0.00e+00 pred_PSNR: 17.59
+[2025/01/30 08:25:47] Rank:None, Sample ID:33, Epoch[300/300], lr:0.00e+00 pred_PSNR: 28.06
+[2025/01/30 08:25:49] Rank:None, Sample ID:34, Epoch[300/300], lr:0.00e+00 pred_PSNR: 28.44
+[2025/01/30 08:25:51] Rank:None, Sample ID:35, Epoch[300/300], lr:0.00e+00 pred_PSNR: 19.61
+[2025/01/30 08:25:53] Rank:None, Sample ID:36, Epoch[300/300], lr:0.00e+00 pred_PSNR: 20.38
+[2025/01/30 08:25:55] Rank:None, Sample ID:37, Epoch[300/300], lr:0.00e+00 pred_PSNR: 12.4
+[2025/01/30 08:25:57] Rank:None, Sample ID:38, Epoch[300/300], lr:0.00e+00 pred_PSNR: 18.81
+[2025/01/30 08:25:58] Rank:None, Sample ID:39, Epoch[300/300], lr:0.00e+00 pred_PSNR: 14.96
+[2025/01/30 08:26:00] Rank:None, Sample ID:40, Epoch[300/300], lr:0.00e+00 pred_PSNR: 14.03
+[2025/01/30 08:26:02] Rank:None, Sample ID:41, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.34
+[2025/01/30 08:26:04] Rank:None, Sample ID:42, Epoch[300/300], lr:0.00e+00 pred_PSNR: 21.38
+[2025/01/30 08:26:06] Rank:None, Sample ID:43, Epoch[300/300], lr:0.00e+00 pred_PSNR: 24.81
+[2025/01/30 08:26:08] Rank:None, Sample ID:44, Epoch[300/300], lr:0.00e+00 pred_PSNR: 22.1
+[2025/01/30 08:26:09] Rank:None, Sample ID:45, Epoch[300/300], lr:0.00e+00 pred_PSNR: 15.62
+[2025/01/30 08:26:11] Rank:None, Sample ID:46, Epoch[300/300], lr:0.00e+00 pred_PSNR: 16.82
+[2025/01/30 08:26:13] Rank:None, Sample ID:47, Epoch[300/300], lr:0.00e+00 pred_PSNR: 14.39
+[2025/01/30 08:26:15] Rank:None, Sample ID:48, Epoch[300/300], lr:0.00e+00 pred_PSNR: 27.43
+[2025/01/30 08:26:17] Rank:None, Sample ID:49, Epoch[300/300], lr:0.00e+00 pred_PSNR: 27.75
+[2025/01/30 08:26:19] Rank:None, Sample ID:50, Epoch[300/300], lr:0.00e+00 pred_PSNR: 18.55

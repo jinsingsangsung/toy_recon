@@ -1,0 +1,165 @@
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv9(
+      (B_tildes): ParameterList()
+      (x_proj_0): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_0): Linear(in_features=16, out_features=16, bias=True)
+      (x_proj_1): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_1): Linear(in_features=16, out_features=16, bias=True)
+      (C_proj): Conv2d(3, 128, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.03M_Decoder_0.0M_Total_0.0M
+[2025/03/02 07:53:26] Rank:None, Sample ID:0, Epoch[100/100], lr:0.00e+00 pred_PSNR: 7.39
+[2025/03/02 07:53:27] Rank:None, Sample ID:1, Epoch[100/100], lr:0.00e+00 pred_PSNR: 5.49
+[2025/03/02 07:53:28] Rank:None, Sample ID:2, Epoch[100/100], lr:0.00e+00 pred_PSNR: 6.8
+[2025/03/02 07:53:30] Rank:None, Sample ID:3, Epoch[100/100], lr:0.00e+00 pred_PSNR: 7.11
+[2025/03/02 07:53:31] Rank:None, Sample ID:4, Epoch[100/100], lr:0.00e+00 pred_PSNR: 3.08
+[2025/03/02 07:53:32] Rank:None, Sample ID:5, Epoch[100/100], lr:0.00e+00 pred_PSNR: 6.32
+[2025/03/02 07:53:33] Rank:None, Sample ID:6, Epoch[100/100], lr:0.00e+00 pred_PSNR: 5.47
+[2025/03/02 07:53:35] Rank:None, Sample ID:7, Epoch[100/100], lr:0.00e+00 pred_PSNR: 7.61
+[2025/03/02 07:53:36] Rank:None, Sample ID:8, Epoch[100/100], lr:0.00e+00 pred_PSNR: 5.47
+[2025/03/02 07:53:37] Rank:None, Sample ID:9, Epoch[100/100], lr:0.00e+00 pred_PSNR: 6.64
+[2025/03/02 07:53:38] Rank:None, Sample ID:10, Epoch[100/100], lr:0.00e+00 pred_PSNR: 6.35
+[2025/03/02 07:53:40] Rank:None, Sample ID:11, Epoch[100/100], lr:0.00e+00 pred_PSNR: 6.97
+[2025/03/02 07:53:41] Rank:None, Sample ID:12, Epoch[100/100], lr:0.00e+00 pred_PSNR: 8.66
+[2025/03/02 07:53:42] Rank:None, Sample ID:13, Epoch[100/100], lr:0.00e+00 pred_PSNR: 5.42
+[2025/03/02 07:53:43] Rank:None, Sample ID:14, Epoch[100/100], lr:0.00e+00 pred_PSNR: 8.58
+[2025/03/02 07:53:45] Rank:None, Sample ID:15, Epoch[100/100], lr:0.00e+00 pred_PSNR: 4.51
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv9(
+      (B_tildes): ParameterList()
+      (x_proj_0): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_0): Linear(in_features=16, out_features=16, bias=True)
+      (x_proj_1): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_1): Linear(in_features=16, out_features=16, bias=True)
+      (C_proj): Conv2d(3, 128, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.03M_Decoder_0.0M_Total_0.0M
+[2025/03/02 08:07:47] Rank:None, Sample ID:0, Epoch[100/100], lr:0.00e+00 pred_MSE: 7.39
+[2025/03/02 08:07:49] Rank:None, Sample ID:1, Epoch[100/100], lr:0.00e+00 pred_MSE: 5.49
+[2025/03/02 08:07:50] Rank:None, Sample ID:2, Epoch[100/100], lr:0.00e+00 pred_MSE: 6.8
+[2025/03/02 08:07:51] Rank:None, Sample ID:3, Epoch[100/100], lr:0.00e+00 pred_MSE: 7.11
+[2025/03/02 08:07:53] Rank:None, Sample ID:4, Epoch[100/100], lr:0.00e+00 pred_MSE: 3.08
+[2025/03/02 08:07:54] Rank:None, Sample ID:5, Epoch[100/100], lr:0.00e+00 pred_MSE: 6.32
+[2025/03/02 08:07:55] Rank:None, Sample ID:6, Epoch[100/100], lr:0.00e+00 pred_MSE: 5.47
+[2025/03/02 08:07:57] Rank:None, Sample ID:7, Epoch[100/100], lr:0.00e+00 pred_MSE: 7.61
+[2025/03/02 08:07:58] Rank:None, Sample ID:8, Epoch[100/100], lr:0.00e+00 pred_MSE: 5.47
+[2025/03/02 08:07:59] Rank:None, Sample ID:9, Epoch[100/100], lr:0.00e+00 pred_MSE: 6.64
+[2025/03/02 08:08:01] Rank:None, Sample ID:10, Epoch[100/100], lr:0.00e+00 pred_MSE: 6.35
+[2025/03/02 08:08:02] Rank:None, Sample ID:11, Epoch[100/100], lr:0.00e+00 pred_MSE: 6.97
+[2025/03/02 08:08:03] Rank:None, Sample ID:12, Epoch[100/100], lr:0.00e+00 pred_MSE: 8.66
+[2025/03/02 08:08:04] Rank:None, Sample ID:13, Epoch[100/100], lr:0.00e+00 pred_MSE: 5.42
+[2025/03/02 08:08:05] Rank:None, Sample ID:14, Epoch[100/100], lr:0.00e+00 pred_MSE: 8.58
+[2025/03/02 08:08:06] Rank:None, Sample ID:15, Epoch[100/100], lr:0.00e+00 pred_MSE: 4.51
+[2025/03/02 08:08:08] Rank:None, Sample ID:16, Epoch[100/100], lr:0.00e+00 pred_MSE: 6.95
+[2025/03/02 08:08:09] Rank:None, Sample ID:17, Epoch[100/100], lr:0.00e+00 pred_MSE: 9.01
+[2025/03/02 08:08:10] Rank:None, Sample ID:18, Epoch[100/100], lr:0.00e+00 pred_MSE: 9.32
+[2025/03/02 08:08:11] Rank:None, Sample ID:19, Epoch[100/100], lr:0.00e+00 pred_MSE: 7.48
+[2025/03/02 08:08:12] Rank:None, Sample ID:20, Epoch[100/100], lr:0.00e+00 pred_MSE: 10.77
+[2025/03/02 08:08:14] Rank:None, Sample ID:21, Epoch[100/100], lr:0.00e+00 pred_MSE: 10.22
+[2025/03/02 08:08:15] Rank:None, Sample ID:22, Epoch[100/100], lr:0.00e+00 pred_MSE: 13.79
+[2025/03/02 08:08:16] Rank:None, Sample ID:23, Epoch[100/100], lr:0.00e+00 pred_MSE: 6.2
+[2025/03/02 08:08:17] Rank:None, Sample ID:24, Epoch[100/100], lr:0.00e+00 pred_MSE: 6.87
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv9(
+      (B_tildes): ParameterList()
+      (x_proj_0): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_0): Linear(in_features=16, out_features=16, bias=True)
+      (x_proj_1): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_1): Linear(in_features=16, out_features=16, bias=True)
+      (C_proj): Conv2d(3, 128, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.03M_Decoder_0.0M_Total_0.0M
+[2025/03/02 08:16:53] Rank:None, Sample ID:0, Epoch[100/100], lr:0.00e+00 pred_MSE: nan
+[2025/03/02 08:16:54] Rank:None, Sample ID:1, Epoch[100/100], lr:0.00e+00 pred_MSE: nan
+[2025/03/02 08:16:56] Rank:None, Sample ID:2, Epoch[100/100], lr:0.00e+00 pred_MSE: nan
+[2025/03/02 08:16:57] Rank:None, Sample ID:3, Epoch[100/100], lr:0.00e+00 pred_MSE: nan
+[2025/03/02 08:16:58] Rank:None, Sample ID:4, Epoch[100/100], lr:0.00e+00 pred_MSE: nan
+[2025/03/02 08:16:59] Rank:None, Sample ID:5, Epoch[100/100], lr:0.00e+00 pred_MSE: nan
+[2025/03/02 08:17:00] Rank:None, Sample ID:6, Epoch[100/100], lr:0.00e+00 pred_MSE: nan
+[2025/03/02 08:17:02] Rank:None, Sample ID:7, Epoch[100/100], lr:0.00e+00 pred_MSE: nan
+[2025/03/02 08:17:03] Rank:None, Sample ID:8, Epoch[100/100], lr:0.00e+00 pred_MSE: nan
+[2025/03/02 08:17:04] Rank:None, Sample ID:9, Epoch[100/100], lr:0.00e+00 pred_MSE: nan
+[2025/03/02 08:17:05] Rank:None, Sample ID:10, Epoch[100/100], lr:0.00e+00 pred_MSE: nan
+[2025/03/02 08:17:07] Rank:None, Sample ID:11, Epoch[100/100], lr:0.00e+00 pred_MSE: nan
+[2025/03/02 08:17:08] Rank:None, Sample ID:12, Epoch[100/100], lr:0.00e+00 pred_MSE: nan
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv9(
+      (B_tildes): ParameterList()
+      (x_proj_0): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_0): Linear(in_features=16, out_features=16, bias=True)
+      (x_proj_1): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_1): Linear(in_features=16, out_features=16, bias=True)
+      (C_proj): Conv2d(3, 128, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.03M_Decoder_0.0M_Total_0.0M
+[2025/03/02 08:17:40] Rank:None, Sample ID:0, Epoch[100/100], lr:0.00e+00 pred_MSE: 0.87
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv9(
+      (B_tildes): ParameterList()
+      (x_proj_0): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_0): Linear(in_features=16, out_features=16, bias=True)
+      (x_proj_1): Linear(in_features=8, out_features=32, bias=True)
+      (dt_proj_1): Linear(in_features=16, out_features=16, bias=True)
+      (C_proj): Conv2d(3, 128, kernel_size=(8, 8), stride=(8, 8))
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.03M_Decoder_0.0M_Total_0.0M
+[2025/03/02 08:20:35] Rank:None, Sample ID:0, Epoch[100/100], lr:0.00e+00 pred_MSE: 0.62
+[2025/03/02 08:20:36] Rank:None, Sample ID:1, Epoch[100/100], lr:0.00e+00 pred_MSE: 0.63
+[2025/03/02 08:20:37] Rank:None, Sample ID:2, Epoch[100/100], lr:0.00e+00 pred_MSE: 0.67
+[2025/03/02 08:20:38] Rank:None, Sample ID:3, Epoch[100/100], lr:0.00e+00 pred_MSE: 0.67
+[2025/03/02 08:20:40] Rank:None, Sample ID:4, Epoch[100/100], lr:0.00e+00 pred_MSE: 0.52
+[2025/03/02 08:20:41] Rank:None, Sample ID:5, Epoch[100/100], lr:0.00e+00 pred_MSE: 0.64
+[2025/03/02 08:20:42] Rank:None, Sample ID:6, Epoch[100/100], lr:0.00e+00 pred_MSE: 0.61
+[2025/03/02 08:20:43] Rank:None, Sample ID:7, Epoch[100/100], lr:0.00e+00 pred_MSE: 0.71
+[2025/03/02 08:20:45] Rank:None, Sample ID:8, Epoch[100/100], lr:0.00e+00 pred_MSE: 0.54
+[2025/03/02 08:20:46] Rank:None, Sample ID:9, Epoch[100/100], lr:0.00e+00 pred_MSE: 0.65
+[2025/03/02 08:20:47] Rank:None, Sample ID:10, Epoch[100/100], lr:0.00e+00 pred_MSE: 0.64
+[2025/03/02 08:20:48] Rank:None, Sample ID:11, Epoch[100/100], lr:0.00e+00 pred_MSE: 0.66
+[2025/03/02 08:20:50] Rank:None, Sample ID:12, Epoch[100/100], lr:0.00e+00 pred_MSE: 0.71
+[2025/03/02 08:20:51] Rank:None, Sample ID:13, Epoch[100/100], lr:0.00e+00 pred_MSE: 0.57
+[2025/03/02 08:20:52] Rank:None, Sample ID:14, Epoch[100/100], lr:0.00e+00 pred_MSE: 0.67
+[2025/03/02 08:20:53] Rank:None, Sample ID:15, Epoch[100/100], lr:0.00e+00 pred_MSE: 0.57
+[2025/03/02 08:20:55] Rank:None, Sample ID:16, Epoch[100/100], lr:0.00e+00 pred_MSE: 0.64
+[2025/03/02 08:20:56] Rank:None, Sample ID:17, Epoch[100/100], lr:0.00e+00 pred_MSE: 0.72
+[2025/03/02 08:20:57] Rank:None, Sample ID:18, Epoch[100/100], lr:0.00e+00 pred_MSE: 0.75
+[2025/03/02 08:20:58] Rank:None, Sample ID:19, Epoch[100/100], lr:0.00e+00 pred_MSE: 0.69
+[2025/03/02 08:21:00] Rank:None, Sample ID:20, Epoch[100/100], lr:0.00e+00 pred_MSE: 0.76
+[2025/03/02 08:21:01] Rank:None, Sample ID:21, Epoch[100/100], lr:0.00e+00 pred_MSE: 0.78
+[2025/03/02 08:21:02] Rank:None, Sample ID:22, Epoch[100/100], lr:0.00e+00 pred_MSE: 0.9
+[2025/03/02 08:21:03] Rank:None, Sample ID:23, Epoch[100/100], lr:0.00e+00 pred_MSE: 0.63
+[2025/03/02 08:21:04] Rank:None, Sample ID:24, Epoch[100/100], lr:0.00e+00 pred_MSE: 0.65

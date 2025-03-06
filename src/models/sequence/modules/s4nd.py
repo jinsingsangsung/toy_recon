@@ -151,7 +151,6 @@ class S4ND(SequenceModule):
                 self.h*self.channels,
                 self.h,
                 transposed=self.transposed,
-                initializer=initializer,
                 activation=final_act,
                 activate=True,
                 weight_norm=weight_norm,

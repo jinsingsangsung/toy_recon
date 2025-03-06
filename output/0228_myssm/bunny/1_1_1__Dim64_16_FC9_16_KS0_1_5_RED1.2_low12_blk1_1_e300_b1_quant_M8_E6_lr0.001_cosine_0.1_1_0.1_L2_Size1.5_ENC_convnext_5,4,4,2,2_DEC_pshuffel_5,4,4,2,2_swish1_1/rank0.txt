@@ -1,0 +1,18 @@
+MySSMConv(
+  (encoder): ModuleList(
+    (0): SSMConv2dv8(
+      (B_tildes): ParameterList()
+      (x_proj_0): Linear(in_features=8, out_features=32, bias=True)
+      (x_proj_1): Linear(in_features=8, out_features=32, bias=True)
+      (act): GELU(approximate='none')
+      (C_second): Conv2d(16, 3, kernel_size=(1, 1), stride=(1, 1), padding_mode=replicate)
+    )
+  )
+  (decoder): Sequential(
+    (0): Conv2d(8, 192, kernel_size=(1, 1), stride=(1, 1))
+    (1): PixelShuffle(upscale_factor=8)
+  )
+)
+Encoder_0.0M_Decoder_0.0M_Total_0.0M
+[2025/02/28 06:23:48] Rank:None, Sample ID:0, Epoch[300/300], lr:0.00e+00 pred_PSNR: 16.87
+[2025/02/28 06:23:50] Rank:None, Sample ID:1, Epoch[300/300], lr:0.00e+00 pred_PSNR: 18.89
