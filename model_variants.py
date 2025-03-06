@@ -44,9 +44,8 @@ def build_2d_sincos_pos_embed(channels, h, w):
 
 
 class DummyIdentity(nn.Module):
-    def __init__(self, in_channels):
+    def __init__(self, d_state, transposed=None, d_model=None, in_channels=None, h=None, w=None, kernel_size=None):
         super(DummyIdentity, self).__init__()
-        self.in_channels = in_channels
     
     def forward(self, x):
         return x
@@ -87,7 +86,7 @@ class SSMBlock(nn.Module):
         # elif model == "s5":
         #     self.block = partial(S5, d_state=d_state)
         else:
-            self.block = DummyIdentity()
+            self.block = DummyIdentity(d_state=d_state, transposed=False, d_model=in_channels, in_channels=in_channels)
         
         if model in ["s4", "s4d", "mamba"]:
             indices = torch.zeros(h * w, dtype=torch.long)
@@ -133,7 +132,7 @@ class Variants(nn.Module):
                  ):
         super(Variants, self).__init__()
         if model == "base":
-            self.block = nn.Identity()
+            self.block = partial(DummyIdentity, d_state=d_state)
         elif model == "transformer":
             self.block = partial(TransformerBlock, d_model=d_state)
         else:
@@ -238,7 +237,6 @@ class VariantsC(Variants):
     """
     def __init__(self, model, in_channels, out_channels, kernel_size=8):
         super(VariantsC, self).__init__(model, in_channels, out_channels)
-
         self.encoder = nn.ModuleList([
             self.block(in_channels=in_channels, h=32, w=32),
             nn.Sequential(
