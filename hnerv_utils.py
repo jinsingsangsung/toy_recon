@@ -148,7 +148,8 @@ def adjust_lr(optimizer, cur_epoch, args):
 
     for i, param_group in enumerate(optimizer.param_groups):
         param_group['lr'] = args.lr * lr_mult
-
+        # if i == 1:
+        #     param_group['lr'] = args.lr * 0.1 * lr_mult
     return args.lr * lr_mult
 
 

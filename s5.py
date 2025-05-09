@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import numpy as np
 from torch.nn.init import kaiming_normal_, normal_
 from scipy.linalg import block_diag
-
+import math
 
 def make_HiPPO(N):
     """ Create a HiPPO-LegS matrix.
@@ -212,6 +212,54 @@ def binary_operator(q_i, q_j):
     A_j, b_j = q_j
     return A_j * A_i, A_j * b_i + b_j
 
+def parallel_scan(Lambda_elements, Bu_elements):
+    """
+    Does the equivalent of the following:
+    L = Lambda_elements.shape[0]
+    P = Lambda_elements.shape[1]
+    xs = []
+    x = torch.zeros_like(Bu_elements[0])
+    for i in range(L):
+        x = Lambda_elements[i] * x + Bu_elements[i]
+        xs.append(x)
+    xs = torch.stack(xs)
+    """
+    device = Bu_elements.device
+    x = torch.zeros_like(Bu_elements, device=device)
+    L, N = Lambda_elements.shape
+    pad_len = 2**(math.ceil(math.log2(L))) - L
+    # x_padded = F.pad(x, (0, pad_len), "constant", 0)
+    Lambda_padded = F.pad(Lambda_elements, (0, 0, 0, pad_len), "constant", 0)
+    Bu_padded = F.pad(Bu_elements, (0, 0, 0, pad_len), "constant", 0)
+
+    L_padded = L + pad_len
+    levels = int(math.log2(L_padded))
+
+    y = torch.zeros(L_padded, N, device=device, dtype=Bu_elements.dtype) # L, N
+    z = Bu_padded # L, N
+    # Up-sweep phase
+    for d in range(levels):
+        step = 2 ** d
+        indices = torch.arange(0, L_padded, 2 * step, device=device)
+        z[indices + 2*step - 1] += Lambda_padded[indices + 2*step - 1] * z[indices + step - 1]
+        if len(indices) > 1:
+            Lambda_padded[indices + 2*step - 1] = Lambda_padded[indices + 2*step - 1] * Lambda_padded[indices + step - 1]
+
+    # Down-sweep phase
+    y[:] = z[:]
+    z[-1, :] = 0
+    for d in range(levels -1, -1, -1):
+        step = 2 ** d
+        indices = torch.arange(0, L_padded, 2 * step, device=device)
+        y[indices + step - 1] = z[indices + 2 * step - 1]
+        y[indices + 2*step - 1] = z[indices + step - 1] + Lambda_padded[indices + step - 1] * z[indices + 2*step - 1]
+        z[:] = y[:]
+
+    y_L = Lambda_elements[-1] * y[-1] + Bu_elements[-1]
+    y = torch.cat([z[1:], y_L[None]], dim=0)
+
+    y = y[:L]
+    return y
 
 def apply_ssm(Lambda_bar, B_bar, C_tilde, input_sequence, conj_sym, bidirectional):
     """ Compute the LxH output of discretized SSM given an LxH input.
@@ -238,11 +286,14 @@ def apply_ssm(Lambda_bar, B_bar, C_tilde, input_sequence, conj_sym, bidirectiona
 
     # Forward pass
     xs = []
-    x = torch.zeros_like(Bu_elements[0])
-    for i in range(L):
-        x = Lambda_elements[i] * x + Bu_elements[i]
-        xs.append(x)
-    xs = torch.stack(xs)
+    if False:
+        x = torch.zeros_like(Bu_elements[0])
+        for i in range(L):
+            x = Lambda_elements[i] * x + Bu_elements[i]
+            xs.append(x)
+        xs = torch.stack(xs)
+    else:
+        xs = parallel_scan(Lambda_elements, Bu_elements)
 
     if bidirectional:
         # Backward pass
@@ -403,7 +454,6 @@ class S5SSM(nn.Module):
         Du = input_sequence * self.D.unsqueeze(0)
         return ys + Du
 
-
 class SequenceLayer(nn.Module):
     """ Defines a single S5 layer, with S5 SSM, nonlinearity,
             dropout, batch/layer norm, etc.
@@ -455,34 +505,39 @@ class SequenceLayer(nn.Module):
         Returns:
             output sequence (float32): (L, d_model)
         """
-        skip = x
-        if self.prenorm:
-            x = self.norm(x)
+        # skip = x
+        if len(x.shape) == 3:
+            x = x[0]
+        # if self.prenorm:
+        #     x = self.norm(x)
         x = self.ssm(x)
+        x = self.out2(torch.sigmoid(x))
 
-        if self.activation in ["full_glu"]:
-            x = self.drop(F.gelu(x))
-            x = self.out1(x) * torch.sigmoid(self.out2(x))
-            x = self.drop(x)
-        elif self.activation in ["half_glu1"]:
-            x = self.drop(F.gelu(x))
-            x = x * torch.sigmoid(self.out2(x))
-            x = self.drop(x)
-        elif self.activation in ["half_glu2"]:
-            # Only apply GELU to the gate input
-            x1 = self.drop(F.gelu(x))
-            x = x * torch.sigmoid(self.out2(x1))
-            x = self.drop(x)
-        elif self.activation in ["gelu"]:
-            x = self.drop(F.gelu(x))
-        else:
-            raise NotImplementedError(f"Activation: {self.activation} not implemented")
+        # if self.activation in ["full_glu"]:
+        #     x = self.drop(F.gelu(x))
+        #     x = self.out1(x) * torch.sigmoid(self.out2(x))
+        #     x = self.drop(x)
+        # elif self.activation in ["half_glu1"]:
+        #     x = self.drop(F.gelu(x))
+        #     x = x * torch.sigmoid(self.out2(x))
+        #     x = self.drop(x)
+        # elif self.activation in ["half_glu2"]:
+        #     # Only apply GELU to the gate input
+        #     x1 = self.drop(F.gelu(x))
+        #     x = x * torch.sigmoid(self.out2(x1))
+        #     x = self.drop(x)
+        # elif self.activation in ["gelu"]:
+        #     x = self.drop(F.gelu(x))
+        # else:
+        #     x = self.drop(x)
+        #     # raise NotImplementedError(f"Activation: {self.activation} not implemented")
 
-        x = skip + x
-        if not self.prenorm:
-            x = self.norm(x)
+        # x = skip + x
+        # if not self.prenorm:
+        #     x = self.norm(x)
+        if len(x.shape) == 2:
+            x = x[None]
         return x
-
 
 if __name__ == "__main__":
     blocks = 4

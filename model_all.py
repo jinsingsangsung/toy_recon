@@ -7,9 +7,6 @@ from math import pi, sqrt, ceil
 import torch.nn.functional as F
 import numpy as np
 from matplotlib.path import Path
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
 from timm.models.layers import trunc_normal_, DropPath
 from pytorchvideo.data.encoded_video import EncodedVideo
 from torchvision.transforms.functional import center_crop, resize
@@ -18,21 +15,22 @@ from torch.nn.functional import interpolate
 import decord
 decord.bridge.set_bridge('torch')
 import glob
-from mambaconv import MambaConv2d, MambaGlobalConv2d, MambaUpConv2d, MambaConv2dVariant, S4NDConv2d
+# from mambaconv import MambaConv2d, MambaGlobalConv2d, MambaUpConv2d, MambaConv2dVariant, S4NDConv2d
 from einops import rearrange
 import pickle
-from einops import rearrange, repeat
 from einops import rearrange, repeat
 from torch.nn.common_types import _size_1_t, _size_2_t, _size_3_t
 from typing import Optional, List, Tuple, Union
 from torch.nn.modules.utils import _single, _pair, _triple, _reverse_repeat_tuple
 from torch.nn.modules.conv import _ConvNd
 from torch import Tensor
-from parallel_scan import EfficientParallelScanFunction, ParallelScanFunction
+from parallel_scan import EfficientParallelScanFunction, ParallelScanFunction, parallel_scan
 from s4 import S4Block
+from s4d import S4D
 from torch.nn.init import kaiming_normal_, normal_
 from scipy.linalg import block_diag
 from functools import partial
+from ssmconv import SSMConv2d, SSMConv2dv8, SSMConv2dv4, SSMConv2dv9, SSMConv2dv10
 
 _c2r = torch.view_as_real
 contract = torch.einsum
@@ -203,7 +201,8 @@ class HippoConv2d(_ConvNd):
             scan_function = EfficientParallelScanFunction.apply
         else:
             scan_function = ParallelScanFunction.apply
-        if input.size(0) > 32:
+        # if input.size(0) > 32:
+        if False:
             # to regard GPU memory
             outputs = []
             num_batches = input.size(0) // 512 + 1
@@ -222,9 +221,128 @@ class HippoConv2d(_ConvNd):
             A = repeat(self.A_stacked, "T N1 N2 -> B C T N1 N2", B=input.size(0), C=input.size(1), N1=N, N2=N).contiguous().cuda()
             B = repeat(self.B_stacked, "T N -> B C T N", B=input.size(0), C=input.size(1), N=N).contiguous().cuda()
             output = scan_function(input, A, B)
+            self.output = output
 
         output = rearrange(output[:,:,:,:], "(B H2 W2) C (K1 K2) N -> B C (H2 K1) (W2 K2) N", B=batch_size, H2=H2, W2=W2, K1=self.kernel_size[0], K2=self.kernel_size[1])
         output = self.linear(output)[..., 0]
+
+        return output
+
+    def reconstruct(self, input: Tensor) -> Tensor:
+        '''
+        input: torch.Tensor of size [B, C*N, H/K, W/K]
+        output: torch.Tensor of size [B, C, H, W]
+        '''
+        B, C, H, W = input.shape
+        output = rearrange(input, "B (C N) H W -> B C N H W", B=B, C=C//self.N, N=self.N, H=H, W=W)
+        output = torch.einsum("bcnhw,kn -> bckhw", output, self.eval_matrix.cuda())
+        output = self.zigzag_flatten(rearrange(output, "B C (K1 K2) H W -> (B H W) C K1 K2", K1=self.kernel_size[0], K2=self.kernel_size[1]))
+        output = rearrange(output, "(B H W) C (K1 K2) -> B C (H K1) (W K2)", B=B, H=H, W=W, K1=self.kernel_size[0], K2=self.kernel_size[1])
+        return output
+
+
+class HippoConv1d(_ConvNd):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int, # means nothing, just for compatibility
+        d_state: int,
+        kernel_size: _size_2_t,
+        stride: _size_2_t = 1,  # means nothing, just for compatibility
+        padding: Union[str, _size_2_t] = 0,
+        dilation: _size_2_t = 1,
+        groups: int = 1,
+        measure: str = "legs",
+        discretization: str = "bilinear",
+        dt: float = 0.27,
+        bias: bool = True,
+        padding_mode: str = 'zeros',
+        device=None,
+        dtype=None,
+    ) -> None:
+        factory_kwargs = {'device': device, 'dtype': dtype}
+        kernel_size_ = _pair(kernel_size)
+        stride_ = _pair(stride)
+        padding_ = padding if isinstance(padding, str) else _pair(padding)
+        dilation_ = _pair(dilation)
+        super().__init__(
+            in_channels, out_channels, kernel_size_, stride_, padding_, dilation_,
+            False, _pair(0), groups, bias, padding_mode,)
+        if stride != kernel_size:
+            stride = kernel_size
+        self.N = d_state
+        self.measure = measure
+        assert discretization in ["zoh", "bilinear", "forward", "backward"], \
+            "discretization must be one of 'zoh', 'bilinear', 'forward' or 'backward'"
+        self.discretization = discretization
+        self.dt = dt
+        N = d_state
+        A, B = transition(self.measure, N)
+        B = B.squeeze(-1)
+        A = torch.tensor(A, **factory_kwargs).float()
+        B = torch.tensor(B, **factory_kwargs).float()
+        T = kernel_size
+        A_stacked, B_stacked = construct_A_B_stacked(A, B, T, discretization=discretization)
+        self.A_stacked = A_stacked.requires_grad_(False).contiguous()
+        self.B_stacked = B_stacked.requires_grad_(False).contiguous()
+        vals = np.linspace(0.0, 1.0, T)
+        B_cpu = B.cpu().numpy()
+        self.eval_matrix = torch.Tensor((B_cpu[:, None] * ss.eval_legendre(np.arange(N)[:, None], 2 * vals - 1)).T).float().contiguous()
+        self.linear = nn.Linear(N, 1)
+        self.output = None
+
+    def forward(self, input: Tensor) -> Tensor:
+        '''
+        input: torch.Tensor of size [B, C, L]
+        output: torch.Tensor of size [B, C, N, L/K]
+        where N: d_state, K: kernel_size
+        '''
+        if self.output is not None: # and self.output.requires_grad == False:
+            output = self.output
+        else:
+            input = input.permute(0, 2, 1)
+            if self.padding_mode != 'zeros':
+                input = F.pad(input, self._reversed_padding_repeated_twice, mode=self.padding_mode)
+            else:
+                input = F.pad(input, self.padding*2)
+
+            # patchify input sequences
+            input = input.unfold(dimension=2, size=self.kernel_size[0], step=self.stride[0])
+            batch_size, _, L2, _ = input.shape
+
+            input = rearrange(input, "B C L2 K1 -> (B L2) C K1")
+            N = self.N
+            if self.kernel_size[0] > 32:
+                scan_function = EfficientParallelScanFunction.apply
+                # scan_function = parallel_scan
+            else:
+                scan_function = ParallelScanFunction.apply
+                # scan_function = parallel_scan
+            # if input.size(0) > 32:
+            if False:
+                # to regard GPU memory
+                outputs = []
+                num_batches = input.size(0) // 512 + 1
+                for i in range(num_batches):
+                    start_idx = i * 512
+                    end_idx = min((i + 1) * 512, input.size(0))
+                    batch_input = input[start_idx:end_idx]
+                    batch_A = repeat(self.A_stacked, "T N1 N2 -> B C T N1 N2", B=batch_input.size(0), C=input.size(1), N1=N, N2=N).cuda()
+                    batch_B = repeat(self.B_stacked, "T N -> B C T N", B=batch_input.size(0), C=input.size(1), N=N).cuda()
+                    batch_output = scan_function(batch_input, batch_A, batch_B)
+                    outputs.append(batch_output.cpu())
+                    del batch_input, batch_A, batch_B, batch_output
+                    torch.cuda.empty_cache()
+                output = torch.cat(outputs, dim=0).cuda()
+            else:
+                A = repeat(self.A_stacked, "T N1 N2 -> B C T N1 N2", B=input.size(0), C=input.size(1), N1=N, N2=N).contiguous().cuda()
+                B = repeat(self.B_stacked, "T N -> B C T N", B=input.size(0), C=input.size(1), N=N).contiguous().cuda()
+                output = scan_function(input, A, B)
+            output = rearrange(output, "(B L2) C K N -> B C (L2 K) N", B=batch_size, L2=L2, N=N)
+            self.output = output
+        output = self.linear(output)[..., 0]
+
+        output = output.permute(0, 2, 1)
 
         return output
 
@@ -257,6 +375,8 @@ class Cifar(Dataset):
         first_frame = self.img_load(0)
         self.h, self.w = first_frame.size(-2), first_frame.size(-1)
         self.final_size = self.h * self.w
+        self.variant = args.variant
+        self.enc_strds = [2,2,2]
 
     def img_load(self, idx):
         img = self.cifar_images[idx].reshape(3, 32, 32) # c h w
@@ -266,9 +386,99 @@ class Cifar(Dataset):
         return len(self.cifar_images)
 
     def __getitem__(self, idx):
-        sample = self.img_load(idx)
+        gt_img = self.img_load(idx)
+        sample = {"gt_img": [gt_img]}
+        if self.variant in ["b"]:
+            imgs = [gt_img] # graudally downscaled images
+            for i, strd in enumerate(self.enc_strds):
+                if i == 0:
+                    imgs.append(F.avg_pool2d(gt_img, kernel_size=strd, stride=strd))
+                else:
+                    imgs.append(F.avg_pool2d(imgs[-1], kernel_size=strd, stride=strd))
+            sample["downscaled"] = imgs
+        if self.variant == "c":
+            imgs = []
+            for i, strd in enumerate(self.enc_strds):
+                if i == 0:
+                    imgs.append(F.avg_pool2d(gt_img, kernel_size=strd, stride=strd))
+                else:
+                    imgs.append(F.avg_pool2d(imgs[-1], kernel_size=strd, stride=strd))
+            imgs_up = []
+            for i, img in enumerate(imgs):
+                if i == 0:
+                    imgs_up.append(F.interpolate(imgs[i][None], size=gt_img.shape[-2:], mode='bilinear', align_corners=False)[0])
+                else:
+                    imgs_up.append(F.interpolate(imgs[i][None], size=imgs[i-1].shape[-2:], mode='bilinear', align_corners=False)[0])
+
+            laplacians = [gt_img - imgs_up[0]]
+            imgs_up.append(imgs_up[-1]) # dummy
+            for i, (img, img_up) in enumerate(zip(imgs, imgs_up[1:])):
+                if i < len(imgs) - 1:
+                    laplacians.append(img - img_up)
+                else:
+                    laplacians.append(img)
+            sample["laplacians"] = laplacians
         return sample
 
+class Cifar1D(Dataset):
+    def __init__(self, args):
+        # self.video = [os.path.join(args.data_path, x) for x in sorted(os.listdir(args.data_path))]
+        data_path = os.path.join(args.data_path, "test-1d/test")
+        with open(data_path, "rb") as fo:
+            self.cifar_images = torch.from_numpy(pickle.load(fo, encoding = "bytes")[b"data"])
+        if args.dataset_length < 10000:
+            self.cifar_images = self.cifar_images[:args.dataset_length]
+
+        # Resize the input video and center crop
+        self.crop_list, self.resize_list = args.crop_list, args.resize_list
+
+        first_frame = self.img_load(0)
+        self.h, self.w = first_frame.size(-2), first_frame.size(-1)
+        self.final_size = self.h * self.w
+        self.variant = args.variant
+        self.enc_strds = [2,2,2]
+
+    def img_load(self, idx):
+        img = self.cifar_images[idx].reshape(3, -1) # c h w
+        return img / 255.
+
+    def __len__(self):
+        return len(self.cifar_images)
+
+    def __getitem__(self, idx):
+        gt_img = self.img_load(idx)
+        sample = {"gt_img": [gt_img]}
+        if self.variant in ["b", "c"]:
+            imgs = [gt_img] # graudally downscaled images
+            for i, strd in enumerate(self.enc_strds):
+                if i == 0:
+                    imgs.append(F.avg_pool1d(gt_img, kernel_size=strd, stride=strd))
+                else:
+                    imgs.append(F.avg_pool1d(imgs[-1], kernel_size=strd, stride=strd))
+            sample["downscaled"] = imgs
+        if self.variant == "c":
+            imgs = []
+            for i, strd in enumerate(self.enc_strds):
+                if i == 0:
+                    imgs.append(F.avg_pool1d(gt_img, kernel_size=strd, stride=strd))
+                else:
+                    imgs.append(F.avg_pool1d(imgs[-1], kernel_size=strd, stride=strd))
+            imgs_up = []
+            for i, img in enumerate(imgs):
+                if i == 0:
+                    imgs_up.append(F.interpolate(imgs[i][None], size=gt_img.shape[-1:], mode='linear', align_corners=False)[0])
+                else:
+                    imgs_up.append(F.interpolate(imgs[i][None], size=imgs[i-1].shape[-1:], mode='linear', align_corners=False)[0])
+
+            laplacians = [gt_img - imgs_up[0]]
+            imgs_up.append(imgs_up[-1]) # dummy
+            for i, (img, img_up) in enumerate(zip(imgs, imgs_up[1:])):
+                if i < len(imgs) - 1:
+                    laplacians.append(img - img_up)
+                else:
+                    laplacians.append(img)
+            sample["laplacians"] = laplacians
+        return sample
 
 class NeRVBlock(nn.Module):
     def __init__(self, **kargs):
@@ -350,40 +560,109 @@ class SSMConvVariant(nn.Module):
         img_out = OutImg(output, self.out_bias)[0]
         return  img_out
 
+# from mamba_ssm import Mamba
+
 class SSMConv(nn.Module):
     def __init__(self, args):
         super().__init__()
-        self.encoder = nn.Sequential(
-            MambaConv2d(3, 3, 32, 32), # output: 12,32,32 (#param: 768)
+        self.pos_embed = nn.Parameter(torch.zeros(1, 3, 32, 32))
+        self.encoder = nn.ModuleList([
+            # MambaConv2d(3, 3, 32, 32), # output: 12,32,32 (#param: 768)
+            Mamba(d_model=3, d_state=16, d_conv=4, expand=2),
             nn.Conv2d(3, 8, 8, 8), # 8, 4, 4
-        )
+        ])
         self.decoder = nn.Sequential(
             nn.Conv2d(8, 3*64, 1, 1),
             nn.PixelShuffle(8)
         )
         self.out_bias = args.out_bias
+        self.ln = nn.LayerNorm(3)
+        h, w = 32, 32
+        indices = torch.zeros(h * w, dtype=torch.long)
+        # Fill indices in zig-zag pattern
+        idx = 0
+        for i in range(h):
+            if i % 2 == 0:  # Even rows go left to right
+                for j in range(w):
+                    indices[i*w + j] = idx
+                    idx += 1
+            else:  # Odd rows go right to left
+                for j in range(w-1, -1, -1):
+                    indices[i*w + j] = idx
+                    idx += 1
+        self.indices = indices
 
     def forward(self, input):
         H, W = input.shape[-2:]
-        img_embed = self.encoder(input[None])
+        img_embed = rearrange(input[None], "b c h w -> b (h w) c")
+        img_embed = img_embed[:, self.indices]
+        # from thop import profile
+        # total_params = 0
+        # for name, param in self.encoder[0].named_parameters():
+        #     total_params += param.numel()
+        # print(f"Total parameters in self.encoder[0]: {total_params:,}")
+        img_embed = self.encoder[0](img_embed)
+        img_embed = rearrange(img_embed[:, self.indices], "b (h w) c -> b c h w", h=H, w=W) + self.pos_embed
+        img_embed = self.encoder[1](img_embed)
         output = self.decoder(img_embed)
         img_out = OutImg(output, self.out_bias)[0]
         return  img_out
 
+class MySSMConv(nn.Module):
+    def __init__(self, args):
+        super().__init__()
+        # pos_embed = torch.zeros(1, 3, 32, 32)
+        # nn.init.kaiming_normal_(pos_embed)
+        # self.pos_embed = nn.Parameter(pos_embed)
+        self.encoder = nn.ModuleList([
+            # SSMConv2dv10(3, 8, (16, 16), (8, 8), (4, 4), bidirectional=True, state_size=16, adapt_C=True),
+            SSMConv2dv10(3, 8, (8, 8), (8, 8), (0, 0), bidirectional=True, state_size=16, adapt_C=True),
+            # nn.Conv2d(16, 8, 1, 1)
+        ])
+        self.decoder = nn.Sequential(
+            nn.Conv2d(8, 3*64, 1, 1),
+            nn.PixelShuffle(8)
+        )
+        self.out_bias = args.out_bias
+        self.dct = args.dct
+
+    def forward(self, input):
+        # H, W = input.shape[-2:]
+        # from thop import profile
+        # macs, params = profile(self.encoder[0], inputs=(input[None],))
+        # print(f"macs: {macs}, Params: {params}")
+        # import pdb; pdb.set_trace()
+        img_embed = self.encoder[0](input[None])
+        # img_embed = self.encoder[1](img_embed.real)
+        # output = self.encoder[0].reconstruct(img_embed)
+        output = self.decoder(img_embed)
+        if self.dct:
+            img_out = F.sigmoid(output[0])*8
+        else:
+            img_out = OutImg(output, self.out_bias)[0]
+        return  img_out
+    
 class PureTransformer(nn.Module):
     def __init__(self, args):
         super().__init__()
         self.pos_embed = nn.Parameter(torch.zeros(1, 3, 32, 32))
-        self.transformer = nn.ModuleList([
-            nn.Conv2d(3, 32, 1, 1),
-            nn.LayerNorm([32, 32, 32]),
+        self.transformer = nn.Sequential( # 28999
+            nn.Conv2d(3, 48, 1, 1),
             nn.MultiheadAttention(
-                embed_dim=32,
+                embed_dim=48,
                 num_heads=8,
                 batch_first=True
             ),
-            nn.Conv2d(32, 3, 1, 1)
-        ])
+            # nn.LayerNorm([48, 48, 48]),
+            nn.LayerNorm(48),
+            nn.Sequential(
+                nn.Linear(48, 196),
+                nn.GELU(),
+                nn.Linear(196, 48)
+            ),
+            nn.LayerNorm(48),
+            nn.Conv2d(48, 3, 1, 1)
+        )
         self.encoder = nn.Sequential(
             nn.Conv2d(3, 8, 8, 8), # 8, 4, 4
         )
@@ -391,26 +670,49 @@ class PureTransformer(nn.Module):
             nn.Conv2d(8, 3*64, 1, 1),
             nn.PixelShuffle(8)
         )
-        self.out_bias = args.out_bias
+        
+        self.dct = args.dct
+        if args.dct:
+            self.proj = nn.Conv2d(3, 6, 1, 1)
+        else:
+            self.out_bias = args.out_bias
+
 
     def forward(self, input):
         H, W = input.shape[-2:]
+        total_params = 0
+        # for name, param in self.transformer.named_parameters():
+        #     total_params += param.numel()
+        # print(f"Total parameters in transformer: {total_params:,}")
+        # for name, param in self.encoder.named_parameters():
+        #     total_params += param.numel()
+        # total_params += self.pos_embed.numel()
+        # print(f"Total parameters in encoder + transformer: {total_params:,}")
+        # import pdb; pdb.set_trace()
         img_embed = self.transformer[0](input[None] + self.pos_embed)
-        img_embed = self.transformer[1](img_embed)
         img_embed = rearrange(img_embed, "B C H W -> B (H W) C")
-        img_embed = self.transformer[2](img_embed, img_embed, img_embed)[0]
+        img_embed_trans = self.transformer[1](img_embed, img_embed, img_embed)[0]
+        
+        
+        # img_embed = self.transformer[2](img_embed_trans + img_embed)
+        # img_embed_ffn = self.transformer[3](img_embed)
+        # img_embed = self.transformer[4](img_embed_ffn + img_embed)
+        img_embed = img_embed_trans + img_embed
         img_embed = rearrange(img_embed, "B (H W) C -> B C H W", H=H, W=W)
-        img_embed = self.transformer[3](img_embed)
+        img_embed = self.transformer[5](img_embed)
         img_embed = self.encoder(img_embed)
         output = self.decoder(img_embed)
-        img_out = OutImg(output, self.out_bias)[0]
+        if self.dct:
+            img_out = F.sigmoid(output[0])*8
+        else:
+            img_out = OutImg(output, self.out_bias)[0]
         return  img_out        
 
 class S4NDConv(nn.Module):
     def __init__(self, args):
         super().__init__()
         self.encoder = nn.Sequential(
-            S4NDConv2d(3, 12, 4, 4), # output: 3,4,8,8 (#param: 512)
+            # S4NDConv2d(3, 12, 4, 4), # output: 3,4,8,8 (#param: 512)
             nn.Conv2d(12, 12, 4, 4),
             # nn.Conv2d(4, 4, 4, 4), # down scale
             # nn.Conv2d(4, 4, 4, 4), # down scale
@@ -524,11 +826,12 @@ class S4NDPure(nn.Module):
             nn.Conv2d(8, 3*64, 1, 1),
             nn.PixelShuffle(8)
         )
+        self.pos_embed = nn.Parameter(torch.zeros(1, 3, 32, 32))
         self.out_bias = args.out_bias
 
     def forward(self, input):
         H, W = input.shape[-2:]
-        img_embed, _ = self.encoder[0](input[None])
+        img_embed, _ = self.encoder[0](input[None] + self.pos_embed)
         img_embed = self.encoder[1](img_embed)
         output = self.decoder(img_embed)
         img_out = OutImg(output, self.out_bias)[0]
@@ -547,12 +850,25 @@ class HiPPOConvPure(nn.Module):
             nn.PixelShuffle(8)
         )
         self.out_bias = args.out_bias
+        self.pos_embed = nn.Parameter(torch.zeros(1, 3, 32, 32))
+        self.hippo_feat = None
+        self.dct = args.dct
 
     def forward(self, input):
         H, W = input.shape[-2:]
-        img_embed = self.encoder(input[None])
+        if self.hippo_feat == None:
+            hippo_feat = self.encoder[0](input[None])
+            self.hippo_feat = hippo_feat.detach().clone()
+            img_embed = self.encoder[1](hippo_feat  + self.pos_embed)
+            # img_embed = self.encoder[1](hippo_feat)
+        else:
+            img_embed = self.encoder[1](self.hippo_feat + self.pos_embed)
+            # img_embed = self.encoder[1](self.hippo_feat)
         output = self.decoder(img_embed)
-        img_out = OutImg(output, self.out_bias)[0]
+        if self.dct:
+            img_out = F.sigmoid(output[0])*8
+        else:
+            img_out = OutImg(output, self.out_bias)[0]
         return  img_out
 
 class S4Pure(nn.Module):
@@ -560,6 +876,7 @@ class S4Pure(nn.Module):
         super().__init__()
         self.pos_embed = nn.Parameter(torch.zeros(1, 3, 32, 32))
         self.s4block = S4Block(d_model=3, d_state=16, transposed=True)
+        self.ln = nn.LayerNorm(3)
         self.encoder = nn.Sequential(
             nn.Conv2d(3, 8, 8, 8), # 8, 4, 4
         )
@@ -568,15 +885,98 @@ class S4Pure(nn.Module):
             nn.PixelShuffle(8)
         )
         self.out_bias = args.out_bias
+        self.dct = args.dct
+        h, w = 32, 32
+        indices = torch.zeros(h * w, dtype=torch.long)
+        # Fill indices in zig-zag pattern
+        idx = 0
+        for i in range(h):
+            if i % 2 == 0:  # Even rows go left to right
+                for j in range(w):
+                    indices[i*w + j] = idx
+                    idx += 1
+            else:  # Odd rows go right to left
+                for j in range(w-1, -1, -1):
+                    indices[i*w + j] = idx
+                    idx += 1
+        self.indices = indices
     
     def forward(self, input):
         H, W = input.shape[-2:]
         img_embed = rearrange(input[None], "b c h w -> b c (h w)")
+        img_embed = img_embed[:, :, self.indices] + self.pos_embed.flatten(2)
+        # import thop 
+        # macs, params = thop.profile(self.s4block, inputs=(img_embed,))
+        # print(f"macs: {macs}, Params: {params}")
+        # for name, param in self.s4block.named_parameters():
+        #     print(f"{name}: {param.shape}")
+        # params += self.pos_embed.numel()
+        # params += self.encoder[0].weight.numel() + self.encoder[0].bias.numel()
+        # print(f"Total parameters in encoder + s4block: {params:,}")
+        # import pdb; pdb.set_trace()
         img_embed = self.s4block(img_embed)[0]
+        img_embed = img_embed[:, :, self.indices]
+        # img_embed = self.ln(img_embed.transpose(1,2)).transpose(1,2)
         img_embed = rearrange(img_embed, "b c (h w) -> b c h w", h=H, w=W)
         img_embed = self.encoder(img_embed)
         output = self.decoder(img_embed)
-        img_out = OutImg(output, self.out_bias)[0]
+        if self.dct:
+            img_out = F.sigmoid(output[0])*8
+        else:
+            img_out = OutImg(output, self.out_bias)[0]
+        return  img_out
+
+class S4DPure(nn.Module):
+    def __init__(self, args):
+        super().__init__()
+        # self.pos_embed = nn.Parameter(torch.zeros(1, 3, 32, 32))
+        self.s4dblock = S4D(d_model=3, d_state=16, transposed=True)
+        self.encoder = nn.Sequential(
+            nn.Conv2d(3, 8, 8, 8), # 8, 4, 4
+        )
+        self.decoder = nn.Sequential(
+            nn.Conv2d(8, 3*64, 1, 1),
+            nn.PixelShuffle(8)
+        )
+        self.out_bias = args.out_bias
+        h, w = 32, 32
+        indices = torch.zeros(h * w, dtype=torch.long)
+        # Fill indices in zig-zag pattern
+        idx = 0
+        for i in range(h):
+            if i % 2 == 0:  # Even rows go left to right
+                for j in range(w):
+                    indices[i*w + j] = idx
+                    idx += 1
+            else:  # Odd rows go right to left
+                for j in range(w-1, -1, -1):
+                    indices[i*w + j] = idx
+                    idx += 1
+        self.indices = indices
+        self.dct = args.dct
+
+    def forward(self, input):
+        H, W = input.shape[-2:]
+        img_embed = input[None]
+        img_embed = rearrange(img_embed, "b c h w -> b c (h w)")
+        img_embed = img_embed[:, :, self.indices] # + self.pos_embed.flatten(2)
+        # from thop import profile
+        # macs, params = profile(self.s4dblock, inputs=(img_embed,))
+        # print(f"macs: {macs}, Params: {params}")
+        # import pdb; pdb.set_trace()
+        img_embed = self.s4dblock(img_embed)[0]
+        img_embed = img_embed[:, :, self.indices]
+        img_embed = rearrange(img_embed, "b c (h w) -> b c h w", h=H, w=W)
+        # from thop import profile
+        # macs, params = profile(self.encoder, inputs=(img_embed,))
+        # print(f"macs: {macs}, Params: {params}")
+        # import pdb; pdb.set_trace()
+        img_embed = self.encoder(img_embed)
+        output = self.decoder(img_embed)
+        if self.dct:
+            img_out = F.sigmoid(output[0])*8
+        else:
+            img_out = OutImg(output, self.out_bias)[0]
         return  img_out
 
 class S5Pure(nn.Module):
@@ -703,7 +1103,7 @@ def ActivationLayer(act_type):
     elif act_type == 'gelu':
         act_layer = nn.GELU()
     elif act_type == 'sin':
-        act_layer = Sin
+        act_layer = Sin()
     elif act_type == 'swish':
         act_layer = nn.SiLU(inplace=True)
     elif act_type == 'softplus':

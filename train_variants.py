@@ -13,8 +13,9 @@ import torch.multiprocessing as mp
 import torch.optim as optim
 import torch.utils.data
 from torch.utils.tensorboard import SummaryWriter
-from model_all import Cifar, Cifar1D, SimpleConv, HNeRVDecoder, TransformInput, S4NDConv, S4NDPure, PureTransformer, HiPPOConvPure, S4Pure, S5Pure, S4DPure, SSMConv, MySSMConv
-from model_variants import VariantsA, VariantsB, VariantsC
+from model_all import Cifar, Cifar1D, SimpleConv, HNeRVDecoder, TransformInput #S4NDConv, S4NDPure, PureTransformer, HiPPOConvPure, S4Pure, S5Pure, S4DPure, SSMConv, MySSMConv
+# from model_variants import VariantsA, VariantsB, VariantsC, Vanilla
+from model_variants_1d import VariantsA, VariantsB, VariantsC, Vanilla
 # from cifar import Cifar
 from hnerv_utils import *
 from torch.utils.data import Subset
@@ -30,7 +31,7 @@ from dct import SimpleNetEncoder, SimpleNetDecoder
 def main():
     parser = argparse.ArgumentParser()
     # Dataset parameters
-    parser.add_argument('--data_path', type=str, default='data/cifar-100-python', help='data path for vid')
+    parser.add_argument('--data_path', type=str, default='data/cifar-100-python/', help='data path for vid')
     parser.add_argument('--vid', type=str, default='bunny', help='video id',)
     parser.add_argument('--shuffle_data', action='store_true', help='randomly shuffle the frame idx')
     parser.add_argument('--data_split', type=str, default='1_1_1', 
@@ -96,13 +97,10 @@ def main():
     parser.add_argument('--suffix', default='', help="suffix str for outf")
     
     parser.add_argument('--ms_mamba', action='store_true', help='apply multiscale mamba')
-    parser.add_argument('--dataset_length', type=int, default=10000)
-    parser.add_argument('--model', default='ssm', help="suffix str for outf")
+    parser.add_argument('--dataset_length', type=int, default=1000)
+    parser.add_argument('--model', default='base', help="model type", choices=['base', 's4', 's4d', 'mamba', 's4nd', 'hippo', 'transformer', 's3k', 's5'])
     parser.add_argument('--dct', action='store_true', help='output dct to see if model can embed signal info')
-    parser.add_argument('--variant', type=str, default='a', help='variant of the model', choices=['a', 'b', 'c'])
-    parser.add_argument('--laplacian', action='store_true', help='apply laplacian to the input')
-    parser.add_argument('--downsample', action='store_true', help='apply downsampling to the input')
-    parser.add_argument('--flatten', action='store_true', help='apply flatten to the input')
+    parser.add_argument('--variant', type=str, default='a', help='variant of the model', choices=['a', 'b', 'c', 'd', 'v'])
 
     args = parser.parse_args()
     torch.set_printoptions(precision=4) 
@@ -167,8 +165,8 @@ def train(local_rank, args):
 
     # setup dataloader    
     # dataset = Cifar(args)
-    dataset = Cifar1D(args) if args.flatten else Cifar(args)
-    # torch.manual_seed(42)
+    dataset = Cifar1D(args)
+    torch.manual_seed(42)
     # num_tensors = 100
     # tensor_shape = (3, 32, 32)
     # dataset = [torch.rand(tensor_shape) for _ in range(num_tensors)]
@@ -200,24 +198,16 @@ def train(local_rank, args):
 
 
     ##### get model params and flops #####
-    if args.model == "ssm":
-        model = SSMConv(args)
-    elif args.model == "s4ndpure":
-        model = S4NDPure(args)
-    elif args.model == "transformer":
-        model = PureTransformer(args)        
-    elif args.model == "hippo":
-        model = HiPPOConvPure(args)
-    elif args.model == "s4pure":
-        model = S4Pure(args)
-    elif args.model == "s4dpure":
-        model = S4DPure(args)
-    elif args.model == "s5pure":
-        model = S5Pure(args)
-    elif args.model == "myssm":
-        model = MySSMConv(args)
+    if args.variant == "a":
+        model = VariantsA(model=args.model, in_channels=3, out_channels=8, kernel_size=8)
+    elif args.variant == "b":
+        model = VariantsB(model=args.model, in_channels=3, out_channels=8, kernel_size=8)
+    elif args.variant == "c": # or args.variant == "d":
+        model = VariantsB(model=args.model, in_channels=3, out_channels=8, kernel_size=8)
     else:
-        model = SimpleConv(args)
+        print("working on Vanilla model")
+        model = Vanilla(model=args.model, in_channels=3, out_channels=8, kernel_size=8)
+
     if local_rank in [0, None]:
         encoder_param = (sum([p.data.nelement() for p in model.encoder.parameters()]) / 1e6) 
         decoder_param = (sum([p.data.nelement() for p in model.decoder.parameters()]) / 1e6) 
@@ -302,32 +292,31 @@ def train(local_rank, args):
     counter = 0
     for sid, sample in enumerate(dataset):
         counter += 1
-        for k in sample.keys():
-            for i in range(len(sample[k])):
-                sample[k][i] = sample[k][i].cuda()
+        for key, value in sample.items():
+            for i, v in enumerate(value):
+                sample[key][i] = v[None].cuda()
+        gt_img = sample["gt_img"][0]
+
+        if args.variant == "b": # or args.variant == "c":
+            model_input = sample["downscaled"]
+        elif args.variant == "c":
+            model_input = sample["laplacians"]
+        else:
+            model_input = gt_img
+
         if sid % 10 == 0:
             print("currently working on ", sid, "-th sample.")
-        if args.model == "ssm":
-            model = SSMConv(args)
-        elif args.model == "s4ndpure":
-            model = S4NDPure(args)
-        elif args.model == "transformer":
-            model = PureTransformer(args)                  
-        elif args.model == "hippo":
-            model = HiPPOConvPure(args)
-        elif args.model == "s4pure":
-            model = S4Pure(args)
-        elif args.model == "s4dpure":
-            model = S4DPure(args)
-        elif args.model == "s5pure":
-            model = S5Pure(args)  
-        elif args.model == "myssm":
-            model = MySSMConv(args)            
+        if args.variant == "a":
+            model = VariantsA(model=args.model, in_channels=3, out_channels=8, kernel_size=8)
+        elif args.variant == "b":
+            model = VariantsB(model=args.model, in_channels=3, out_channels=8, kernel_size=8)
+        elif args.variant == "c": # or args.variant == "d":
+            model = VariantsB(model=args.model, in_channels=3, out_channels=8, kernel_size=8)
         else:
-            model = SimpleConv(args)
+            model = Vanilla(model=args.model, in_channels=3, out_channels=8, kernel_size=8)
         model.cuda()
         if args.dct:
-            dct_encoder = SimpleNetEncoder(sample.shape[-1], sample.shape[-2], drop=0.0, ortho_constraint=False).cuda()
+            dct_encoder = SimpleNetEncoder(gt_img.shape[-1], gt_img.shape[-2], drop=0.0, ortho_constraint=False).cuda()
             # Freeze DCT encoder parameters just in case
             for param in dct_encoder.parameters():
                 param.requires_grad = False
@@ -344,7 +333,7 @@ def train(local_rank, args):
         #     encoder = model.encoder
         #     non_ssm_params.extend(model.decoder.parameters())
 
-        # # Group encoder parameters
+        # Group encoder parameters
         # for name, param in encoder.named_parameters():
         #     if any(x in name for x in ['Lambda_re', 'Lambda_im', 'B_', 'log_step']):
         #         # print(f'{name} {param.shape}')
@@ -356,19 +345,25 @@ def train(local_rank, args):
         #     {'params': non_ssm_params, 'weight_decay': 0.0, 'lr': 1e-1},   # Default learning rate for non_ssm_params
         #     {'params': ssm_params, 'weight_decay': 0.0, 'lr': 1e-2},     # Lower learning rate for ssm_params
         # ]
+        # decoder_params = sum(p.numel() for name, p in model.named_parameters() if 'decoder' in name)
+        # print(f"Number of decoder parameters: {decoder_params:,}")
+        # encoder_params = sum(p.numel() for name, p in model.named_parameters() if 'encoder' in name)
+        # print(f"Number of encoder parameters: {encoder_params:,}")
+        # import pdb; pdb.set_trace()
 
         # optimizer = AdamW(param_groups)
         optimizer = AdamW(model.parameters(), weight_decay=0.)
+        # optimizer = Lion(model.parameters(), weight_decay=0.)
         pred_psnr_list = []
         # epoch_total_start = datetime.now()
         # Save sample image
-        if sid == 0:  # Save first sample only
-            sample_img = sample.detach().cpu()
-            # Ensure values are in valid range for saving
-            sample_img = (sample_img - sample_img.min()) / (sample_img.max() - sample_img.min())
-            torchvision.utils.save_image(sample_img, 'sample_image.png')
+        # if sid == 0:  # Save first sample only
+        #     sample_img = sample.detach().cpu()
+        #     # Ensure values are in valid range for saving
+        #     sample_img = (sample_img - sample_img.min()) / (sample_img.max() - sample_img.min())
+        #     torchvision.utils.save_image(sample_img, 'sample_image.png')
         if args.dct:
-            dct_out = torch.log(torch.clamp(dct_encoder(sample), min=1.0))
+            dct_out = torch.log(torch.clamp(dct_encoder(gt_img), min=1.0))
         for epoch in range(args.start_epoch, args.epochs):
             model.train()       
             epoch_start_time = datetime.now()
@@ -377,15 +372,11 @@ def train(local_rank, args):
             # forward and backward
             cur_epoch = (epoch + 1 / 1) / args.epochs
             lr = adjust_lr(optimizer, cur_epoch, args)
-            import pdb; pdb.set_trace()
-            try:
-                img_out, img_embed = model(sample)
-            except:
-                img_out = model(sample)
+            img_out = model(model_input)
             if args.dct:
                 final_loss = loss_fn(img_out, dct_out, "L1")
             else:
-                final_loss = loss_fn(img_out, sample, args.loss)
+                final_loss = loss_fn(img_out, gt_img, args.loss)
             # final_loss += loss_fn(model.encoder(img_out[None]), img_embed)
 
             optimizer.zero_grad()
@@ -398,8 +389,10 @@ def train(local_rank, args):
                 pred_psnr_list.append(mean_abs_error.detach())
                 pred_psnr = min(pred_psnr_list)
             else:
-                pred_psnr_list.append(psnr_fn_single(img_out.detach()[None], sample[None])) 
+                pred_psnr_list.append(psnr_fn_single(img_out.detach()[None], gt_img[None])) 
                 pred_psnr = max(pred_psnr_list)
+                if pred_psnr.isnan():
+                    pred_psnr = torch.tensor(0.0, device=pred_psnr.device)
             if epoch == args.epochs - 1:
                 metric_string = 'pred_PSNR' if not args.dct else 'pred_L1_loss'
                 print_str = '[{}] Rank:{}, Sample ID:{}, Epoch[{}/{}], lr:{:.2e} {}: {}'.format(
@@ -494,10 +487,15 @@ def train(local_rank, args):
             print("current l1 Loss: ", cur_avg_rounded)
         else:
             cur_psnr = max(pred_psnr_list)
+            if cur_psnr.isnan():
+                cur_psnr = cur_avg
             cur_avg = (cur_avg*(counter-1) + cur_psnr) / counter
             print("current score: ", cur_avg)
 
     print("final score: ", cur_avg)
+    if local_rank in [0, None]:
+        with open('{}/rank0.txt'.format(args.outf), 'a') as f:
+            f.write(f"final score: {cur_avg}\n")
 
     if local_rank in [0, None]:
         print(f"Training complete in: {str(datetime.now() - start)}")
