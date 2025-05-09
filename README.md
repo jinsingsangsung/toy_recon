@@ -1,6 +1,6 @@
 # Reconstructing 1D, 2D signals with different SSM models
 
-This repository provides ways to reconstruct 1D, 2D signals with different SSM models: S4, S4D, S4ND, S5, Mamba
+This repository provides ways to reconstruct 1D, 2D signals with different SSM models: S4, S4D, S4ND, S5, Mamba.
 
 ## commandline examples:
 
